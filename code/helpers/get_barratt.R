@@ -8,6 +8,7 @@ get_barratt <- function() {
   library(stringr)
   library(tidyverse)
   library(foreach)
+  library(doParallel)
   
   # Extract URLs
   scrape_urls <- "https://www.barratthomes.co.uk/new-homes/" %>%
@@ -18,11 +19,20 @@ get_barratt <- function() {
     as_tibble_col(column_name = "url") %>%
     mutate(url = paste0("https://www.barratthomes.co.uk", url)) %>%
     .$url %>% as.character()
-  
-  # Initialise Data Frame
-  data <- data.frame()
+
   ## Scraper Logic
-  foreach(i = 1:length(scrape_urls), .errorhandling = "remove") %do% {
+  ### Parallel Backend
+  cores <- parallel::detectCores() - 1
+  cl <- makeCluster(cores)
+  registerDoParallel(cl, cores=cores)
+  data <- foreach(i = 1:length(scrape_urls), .errorhandling = "remove", .combine = rbind) %dopar% {
+    
+    library(rvest)
+    library(dplyr)
+    library(purrr)
+    library(stringr)
+    library(tidyverse)
+    
     main_page <- scrape_urls[i] %>%
       read_html() %>%
       html_nodes(css = ".location-list") 
@@ -56,40 +66,44 @@ get_barratt <- function() {
       summarise(price_from = unique(price_from), price_upto = unique(price_upto),
                 rooms_min = min(rooms, na.rm = T), rooms_max = max(rooms, na.rm = T)) %>%
       mutate_if(is.character, as.numeric)
-    table <- tibble(url = scrape_urls[i], developement = developement,address = address) %>% 
+    
+    tibble(url = scrape_urls[i], developement = developement,address = address) %>% 
       cbind(., details) %>%
       mutate(postcode = str_extract_all(address, "[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][ABD-HJLNP-UW-Z]{2}"),
              address = str_trim(str_remove_all(address, "[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][ABD-HJLNP-UW-Z]{2}")),
-             address = str_remove_all(address, ",$"))
-    data <- bind_rows(data, table)
-    i = i+1
+             address = str_remove_all(address, ",$"), developer = "Barratt-Homes", postcode = as.character(postcode)) 
+    
   }
   
-  # Assign Developer Name
-  data <- data %>% 
-    mutate(developer = "Barratt-Homes", postcode = as.character(postcode))
-  
-  # Deduplicate
-  unique_data <- data %>% select(-url) %>% unique() %>%
-    left_join(., 
-              data %>% 
-                group_by(developement, address, rooms_min, rooms_max, 
-                         price_from, price_upto, postcode, developer) %>%
-                summarise(url = list(url)[[1]][1]))
+  # Reconcile
+  unique_data <- data %>% 
+    select(-url) %>% 
+    unique() %>%
+    left_join(
+      ., 
+      data %>%
+        group_by(developement, address, rooms_min, rooms_max,
+                 price_from, price_upto, postcode, developer) %>%
+        summarise(url = list(url)[[1]][1])
+      )
   
   # Geocode
-  # Look ups for geocoding
-  ons_params <- c(
-    "postcode", "eastings", "northings", "country", "nhs_ha", "longitude", "latitude",
-    "european_electoral_region", "primary_care_trust", "lsoa", "msoa", "incode", "outcode",
-    "parliamentary_constituency", "admin_district", "admin_ward", "ccg", "nuts"
-  )
-  geocoded_postcodes <- data.frame()
-  for (i in 1:length(unique(data$postcode))) {
-    tmp <- PostcodesioR::postcode_lookup(unique(data$postcode)[i])
-    geocoded_postcodes <- bind_rows(geocoded_postcodes, tmp)
+  geocoded_postcodes <- foreach(i = 1:length(unique(data$postcode)), .combine = rbind) %dopar% {
+    
+    # Look ups for geo-coding
+    ons_params <- c(
+      "postcode", "eastings", "northings", "country", "nhs_ha", "longitude", "latitude",
+      "european_electoral_region", "primary_care_trust", "lsoa", "msoa", "incode", "outcode",
+      "parliamentary_constituency", "admin_district", "admin_ward", "ccg", "nuts"
+    )
+    PostcodesioR::postcode_lookup(unique(data$postcode)[i]) %>%
+      select(any_of(ons_params))
+    
   }
   
+  stopCluster(cl)
+  
+  # Results
   data_final <- left_join(unique_data, geocoded_postcodes) %>%
     mutate(Date = Sys.Date(), Year = lubridate::year(Date), Month = months(Date))
   
