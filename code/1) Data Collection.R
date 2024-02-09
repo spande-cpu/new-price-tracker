@@ -11,9 +11,12 @@ source("./code/helpers/get_bellway.R")
 source("./code/helpers/get_persimmon.R")
 
 # Get raw data
-barrat <- get_barratt()
-persimmon <- get_bellway()
-bellway <- get_persimmon()
+barrat <- get_barratt() %>% 
+  mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
+persimmon <- get_bellway() %>% 
+  mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
+bellway <- get_persimmon() %>% 
+  mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
 
 # Look ups for geo-coding
 ons_params <- c(
@@ -24,6 +27,7 @@ ons_params <- c(
 
 # New data
 new <- bind_rows(barrat, persimmon, bellway) %>%
+  mutate(across(where(contains("price"))), as.numeric)
   select(Date, Year, Month, url, developer, developement, address, postcode, rooms_min, 
          rooms_max, price_from, price_upto, all_of(ons_params)) %>%
   filter(!is.na(price_from))
