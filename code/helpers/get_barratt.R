@@ -20,8 +20,8 @@ get_barratt <- function() {
     .$url %>%
     as.character()
 
-  ## Scraper Logic
-  ### Parallel Backend
+  # Scraper Logic
+  ## Parallel Back-end
   cores <- parallel::detectCores() - 1
   cl <- makeCluster(cores)
   registerDoParallel(cl, cores = cores)
