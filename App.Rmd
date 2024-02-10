@@ -35,7 +35,7 @@ output:
 ```
 
 ```{r setup, include=FALSE}
-#bslib::bs_themer()
+# bslib::bs_themer()
 ### Load Dependanciesshboard)
 library(shiny)
 library(plotly)
@@ -48,13 +48,15 @@ library(lmerTest)
 library(httr)
 library(tsibble)
 library(scales)
-#source("##Data_Preperation.R")
+# source("##Data_Preperation.R")
 
 ## Function that takes a faceted plotly object and returns one with clean labels
 ## Clean plotly legend
 clean_plotly_legend <- function(plotly_object) {
-  d <- data.frame(id = seq_along(plotly_object$x$data), 
-                  legend_entries = unlist(lapply(plotly_object$x$data, `[[`, "name")))
+  d <- data.frame(
+    id = seq_along(plotly_object$x$data),
+    legend_entries = unlist(lapply(plotly_object$x$data, `[[`, "name"))
+  )
   # Extract the group identifier
   d$legend_group <- gsub("^\\((.*?),\\d+\\)", "\\1", d$legend_entries)
   # Add an indicator for the first entry per group
@@ -65,7 +67,7 @@ clean_plotly_legend <- function(plotly_object) {
     # Assign the group identifier to the name and legendgroup arguments
     plotly_object$x$data[[i]]$name <- d$legend_group[[i]]
     plotly_object$x$data[[i]]$legendgroup <- plotly_object$x$data[[i]]$name
-    # Show the legend only for the first layer of the group 
+    # Show the legend only for the first layer of the group
     if (!is_first) plotly_object$x$data[[i]]$showlegend <- FALSE
   }
   plotly_object
@@ -74,17 +76,21 @@ clean_plotly_legend <- function(plotly_object) {
 ### Load Dataset
 df <- readRDS(
   "./processed_data/new_build_prices_clean.RDS"
-) %>% 
+) %>%
   rename("data_scraped_on" = "Date") %>%
   mutate(data_scraped_on = date(data_scraped_on), period = data_scraped_on %m-% months(1)) %>%
-  mutate(date=date(tsibble::yearmonth(period))) %>%
-  mutate(rooms_min.f = paste0(rooms_min.f, " Bedrooms"),
-         price = log(price_mean),
-         price.from = log(price_from),
-         price.upto = log(price_upto)) %>%
+  mutate(date = date(tsibble::yearmonth(period))) %>%
+  mutate(
+    rooms_min.f = paste0(rooms_min.f, " Bedrooms"),
+    price = log(price_mean),
+    price.from = log(price_from),
+    price.upto = log(price_upto)
+  ) %>%
   group_by(Month, developer, european_electoral_region, rooms_min.f) %>%
-  mutate(listings = length(unique(developement)),
-         Month = yearmonth(date))
+  mutate(
+    listings = length(unique(developement)),
+    Month = yearmonth(date)
+  )
 df$Month <- factor(df$Month)
 
 ### Load models
@@ -107,23 +113,28 @@ model3.upto <- read_rds("./models/model3.upto.rds")
 ### Halifax index (100=1992)
 halifax <- tibble(
   date = seq.Date(date("2021-06-01"), date("2024-01-01"), by = "month"),
-  halifax_prices  = c(
+  halifax_prices = c(
     260973, 261165, 263162, 267516, 270184, 272778, 275996, ## 2021
     276645, 279741, 283001, 286242, 289666, 293586, 293173, 293992, 293664, 292406,
     285425, 281713, ## 2022
     282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
     284039, 287244, ## 2023
-    291029),
-  halifax_change = c(-.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
-                     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30,-.1, -.4, -2.4, -1.3, ##2022
-                     0.2, 1.2, 0.8, -0.4,-0.2,-0.1,-0.4, -1.8, -.3, 1.2,
-                     .6, 1.1, ## 2023
-                     1.3),
-  annual_hfx_change = c(9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
-                        9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ##2022
-                        2.1,2.1, 1.6, 0.1,-1.1,-2.6,-2.5,-4.5,-4.5,-3.1,
-                        -.8, 1.8, ## 2023
-                        2.5)
+    291029
+  ),
+  halifax_change = c(
+    -.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
+    .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30, -.1, -.4, -2.4, -1.3, ## 2022
+    0.2, 1.2, 0.8, -0.4, -0.2, -0.1, -0.4, -1.8, -.3, 1.2,
+    .6, 1.1, ## 2023
+    1.3
+  ),
+  annual_hfx_change = c(
+    9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
+    9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ## 2022
+    2.1, 2.1, 1.6, 0.1, -1.1, -2.6, -2.5, -4.5, -4.5, -3.1,
+    -.8, 1.8, ## 2023
+    2.5
+  )
 ) %>% filter(date >= date("2022-01-01"))
 options(scipen = 999)
 
@@ -137,71 +148,77 @@ ons <- readRDS("./processed_data/UK-HPI.rds") %>%
   mutate(Date = as.Date(Date))
 
 ons_new_lm <- lm(
-  ONSNewPrice/1000 ~ Month, 
+  ONSNewPrice / 1000 ~ Month,
   data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) %>%
-                  filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
-  )
+    filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
+)
 ons_avg_lm <- lm(
-  ONSAveragePrice/1000 ~ Month,
+  ONSAveragePrice / 1000 ~ Month,
   data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) %>%
-                  filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
-  )
+    filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
+)
 ons_new_lm2 <- lm(
-  ONSNewPrice/1000 ~ Month, 
-  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) 
-  )
+  ONSNewPrice / 1000 ~ Month,
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date))
+)
 ons_avg_lm2 <- lm(
-  ONSAveragePrice/1000 ~ Month,
-  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) 
-  )
+  ONSAveragePrice / 1000 ~ Month,
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date))
+)
 
 
 ### New Build Prices (Average from, mean, upto)
 new_build_price_average <- tibble(
   from = c(
-  rep(NA, 1),
-    (c((exp(as.numeric(fixef(model0.from)[1]))-1),
-       (exp(as.numeric(fixef(model0.from)[1]))-1)+
-         (exp(as.numeric(fixef(model0.from)[1]))-1)*(exp(as.numeric(fixef(model0.from)[-1]))-1)) %>% round())
+    rep(NA, 1),
+    (c(
+      (exp(as.numeric(fixef(model0.from)[1])) - 1),
+      (exp(as.numeric(fixef(model0.from)[1])) - 1) +
+        (exp(as.numeric(fixef(model0.from)[1])) - 1) * (exp(as.numeric(fixef(model0.from)[-1])) - 1)
+    ) %>% round())
   ),
   mean = c(
-  rep(NA, 1),
-    (c((exp(as.numeric(fixef(model0)[1]))-1),
-       (exp(as.numeric(fixef(model0)[1]))-1)+
-         (exp(as.numeric(fixef(model0)[1]))-1)*(exp(as.numeric(fixef(model0)[-1]))-1)) %>% round())
+    rep(NA, 1),
+    (c(
+      (exp(as.numeric(fixef(model0)[1])) - 1),
+      (exp(as.numeric(fixef(model0)[1])) - 1) +
+        (exp(as.numeric(fixef(model0)[1])) - 1) * (exp(as.numeric(fixef(model0)[-1])) - 1)
+    ) %>% round())
   ),
   upto = c(
-  rep(NA, 1),
-    (c((exp(as.numeric(fixef(model0.upto)[1]))-1),
-       (exp(as.numeric(fixef(model0.upto)[1]))-1)+
-         (exp(as.numeric(fixef(model0.upto)[1]))-1)*(exp(as.numeric(fixef(model0.upto)[-1]))-1)) %>% round())
+    rep(NA, 1),
+    (c(
+      (exp(as.numeric(fixef(model0.upto)[1])) - 1),
+      (exp(as.numeric(fixef(model0.upto)[1])) - 1) +
+        (exp(as.numeric(fixef(model0.upto)[1])) - 1) * (exp(as.numeric(fixef(model0.upto)[-1])) - 1)
+    ) %>% round())
   )
-) %>% mutate(average = (0.20*from+0.60*mean+0.20*upto))
+) %>% mutate(average = (0.20 * from + 0.60 * mean + 0.20 * upto))
 
 ### All Index Averages Since 2006 (1st Data Point for New Builds)
 air <- tibble(
   rate = round(
-  mean(
-    c(
-      mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONS12m%Change`, na.rm = T),
-      mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONSNew12m%Change`, na.rm = T),
-      tf %>% 
-        filter(...1 >= (date(yearmonth(Sys.Date())) %m-% years(10))) %>% .$`Year % Change` %>% mean()*100
+    mean(
+      c(
+        mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONS12m%Change`, na.rm = T),
+        mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONSNew12m%Change`, na.rm = T),
+        tf %>%
+          filter(...1 >= (date(yearmonth(Sys.Date())) %m-% years(10))) %>% .$`Year % Change` %>% mean() * 100
       )
-    ),2
+    ), 2
   ),
   `HPI% (10yr)` = paste0("+", rate, "%")
 )
 air2 <- tibble(
   rate = round(
-  mean(
-    c(
-      mean(filter(ons, Date >= date("2006-01-01"))$`ONS12m%Change`, na.rm = T),
-      mean(filter(ons, Date >= date("2006-01-01"))$`ONSNew12m%Change`, na.rm = T),
-      tf %>% 
-        filter(year(...1) > 2005) %>% .$`Year % Change` %>% mean()*100
+    mean(
+      c(
+        mean(filter(ons, Date >= date("2006-01-01"))$`ONS12m%Change`, na.rm = T),
+        mean(filter(ons, Date >= date("2006-01-01"))$`ONSNew12m%Change`, na.rm = T),
+        tf %>%
+          filter(year(...1) > 2005) %>% .$`Year % Change` %>% mean() * 100
       )
-    ),2
+    ), 2
   ),
   `HPI% ('05-)` = paste0("+", rate, "%")
 )
@@ -213,47 +230,58 @@ change <- tibble(
   new_build_change = round((c(
     rep(NA, 1),
     diff(new_build_prices)
-  )/new_build_prices)*100, 2)
+  ) / new_build_prices) * 100, 2)
 ) %>%
-  full_join(nationwide, by = c("Month"="date")) %>%
-  mutate(nationwide_change = round(nationwide_change*100,2),
-         nationwide_prices = round(nationwide_prices,0)) %>%
-  full_join(halifax, by = c("Month"="date")) %>%
-  mutate(annual_nbd_change = c(rep(NA,12), diff(new_build_prices, 12))/lag(new_build_prices, 12),
-         annual_nbd_change = annual_nbd_change*100,
-         annual_nwd_change = annual_nwd_change*100,
-         annual_hfx_change = annual_hfx_change) %>%
-  rename("NewPrice" = "new_build_prices",
-         "New1m%Change" = "new_build_change",
-         "New12m%Change" = "annual_nbd_change", 
-         "HalifaxPrice" = "halifax_prices",
-         "Halifax1m%Change" = "halifax_change",
-         "Halifax12m%Change" = "annual_hfx_change",
-         "NationwidePrice" = "nationwide_prices",
-         "Nationwide1m%Change" = "nationwide_change",
-         "Nationwide12m%Change" = "annual_nwd_change",
+  full_join(nationwide, by = c("Month" = "date")) %>%
+  mutate(
+    nationwide_change = round(nationwide_change * 100, 2),
+    nationwide_prices = round(nationwide_prices, 0)
+  ) %>%
+  full_join(halifax, by = c("Month" = "date")) %>%
+  mutate(
+    annual_nbd_change = c(rep(NA, 12), diff(new_build_prices, 12)) / lag(new_build_prices, 12),
+    annual_nbd_change = annual_nbd_change * 100,
+    annual_nwd_change = annual_nwd_change * 100,
+    annual_hfx_change = annual_hfx_change
+  ) %>%
+  rename(
+    "NewPrice" = "new_build_prices",
+    "New1m%Change" = "new_build_change",
+    "New12m%Change" = "annual_nbd_change",
+    "HalifaxPrice" = "halifax_prices",
+    "Halifax1m%Change" = "halifax_change",
+    "Halifax12m%Change" = "annual_hfx_change",
+    "NationwidePrice" = "nationwide_prices",
+    "Nationwide1m%Change" = "nationwide_change",
+    "Nationwide12m%Change" = "annual_nwd_change",
   ) %>%
   left_join(., ons, by = c("Month" = "Date")) %>%
-  mutate(`Linear Interpolation.(ONS New Price, 10-years)` = predict(ons_new_lm, .),
-         `Linear Interpolation.(ONS Avg Price, 10-years)` = predict(ons_avg_lm, .),
-         `Interpolated.(ONS New Price, 10yr)` = paste0(
-           "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 10-years)`*1000), 
-                                        big.mark = ",")
-           ),
-         `Interpolated.(ONS Avg Price)` = paste0(
-           "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 10-years)`*1000), 
-                                        big.mark = ",")
-           ),
-         `Linear Interpolation.(ONS New Price, 2005-Now)` = predict(ons_new_lm2, .),
-         `Linear Interpolation.(ONS Avg Price, 2005-Now)` = predict(ons_avg_lm2, .),
-         `Interpolated.(ONS New Price, '05-)` = paste0(
-           "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 2005-Now)`*1000), 
-                                        big.mark = ",")
-           ),
-         `Interpolated.(ONS Avg Price, '05-)` = paste0(
-           "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 2005-Now)`*1000), 
-                                        big.mark = ",")
-           ))
+  mutate(
+    `Linear Interpolation.(ONS New Price, 10-years)` = predict(ons_new_lm, .),
+    `Linear Interpolation.(ONS Avg Price, 10-years)` = predict(ons_avg_lm, .),
+    `Interpolated.(ONS New Price, 10yr)` = paste0(
+      "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 10-years)` * 1000),
+        big.mark = ","
+      )
+    ),
+    `Interpolated.(ONS Avg Price)` = paste0(
+      "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 10-years)` * 1000),
+        big.mark = ","
+      )
+    ),
+    `Linear Interpolation.(ONS New Price, 2005-Now)` = predict(ons_new_lm2, .),
+    `Linear Interpolation.(ONS Avg Price, 2005-Now)` = predict(ons_avg_lm2, .),
+    `Interpolated.(ONS New Price, '05-)` = paste0(
+      "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 2005-Now)` * 1000),
+        big.mark = ","
+      )
+    ),
+    `Interpolated.(ONS Avg Price, '05-)` = paste0(
+      "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 2005-Now)` * 1000),
+        big.mark = ","
+      )
+    )
+  )
 ### Legend
 cols <- c("#440154FF", "#3B528BFF", "#21908CFF", "#5DC863FF", "#FDE725FF", "red", "black")
 fills <- c(
@@ -269,21 +297,23 @@ fills <- c(
   "Average Inflation Rate (`HPI%`, 10-years)" = "red",
   "Average Inflation Rate (`HPI%`, 2005-Now)" = "red"
 )
-  
+
 p0 <- change %>%
   ## Pretty labels for plotting
   mutate(
-    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
-    `Nationwide Index` = paste0(round(`Nationwide12m%Change`,2), "%"),
-    `Halifax Index` = paste0(round(`Halifax12m%Change`,2), "%"),
-    `New-Build (list) Prices` = paste0(round(`New12m%Change`,2), "%"),
-    `Lag-4 ONS New Price` = paste0(round(`ONSNew12m%Change`,2), "%"),
-    `Lag-2 ONS Avg Price` = paste0(round(`ONS12m%Change`,2), "%")
-    ) %>%
-  ggplot(aes(x = date(Month), text1 = Date)) + 
-  xlab("Date (2022, 1M)") + ylab("Annual % change") +
-  ggtitle("House-Price Inflation") + 
-  scale_fill_manual(values = fills) + theme_bw() +
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)),
+    `Nationwide Index` = paste0(round(`Nationwide12m%Change`, 2), "%"),
+    `Halifax Index` = paste0(round(`Halifax12m%Change`, 2), "%"),
+    `New-Build (list) Prices` = paste0(round(`New12m%Change`, 2), "%"),
+    `Lag-4 ONS New Price` = paste0(round(`ONSNew12m%Change`, 2), "%"),
+    `Lag-2 ONS Avg Price` = paste0(round(`ONS12m%Change`, 2), "%")
+  ) %>%
+  ggplot(aes(x = date(Month), text1 = Date)) +
+  xlab("Date (2022, 1M)") +
+  ylab("Annual % change") +
+  ggtitle("House-Price Inflation") +
+  scale_fill_manual(values = fills) +
+  theme_bw() +
   theme(legend.title = element_blank()) +
   geom_hline(yintercept = 0, lty = "dashed", col = "black")
 p0$labels$fill <- ""
@@ -291,154 +321,176 @@ p0$labels$fill <- ""
 p1 <- change %>%
   ## Pretty labels for plotting
   mutate(
-    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)),
     `Nationwide Index` = paste0(`Nationwide1m%Change`, "%"),
     `Halifax Index` = paste0(`Halifax1m%Change`, "%"),
     `New-Build (list) Prices` = paste0(`New1m%Change`, "%"),
-    `Lag-4 ONS New Price` = paste0(round(`ONSNew1m%Change`,2), "%"),
-    `Lag-2 ONS Avg Price` = paste0(round(`ONS1m%Change`,2), "%")
-    ) %>%
-  ggplot(aes(x = date(Month), text1 = Date)) + 
-  xlab("Date (2022, 1M)") + ylab("Monthly % change") +
-  ggtitle("House-Price Inflation") + 
-  scale_fill_manual(values = fills) + theme_bw() +
+    `Lag-4 ONS New Price` = paste0(round(`ONSNew1m%Change`, 2), "%"),
+    `Lag-2 ONS Avg Price` = paste0(round(`ONS1m%Change`, 2), "%")
+  ) %>%
+  ggplot(aes(x = date(Month), text1 = Date)) +
+  xlab("Date (2022, 1M)") +
+  ylab("Monthly % change") +
+  ggtitle("House-Price Inflation") +
+  scale_fill_manual(values = fills) +
+  theme_bw() +
   theme(legend.title = element_blank()) +
-  geom_hline(yintercept = 0, lty = "dashed", col = "black") 
+  geom_hline(yintercept = 0, lty = "dashed", col = "black")
 p1$labels$fill <- ""
 
 p2 <- change %>%
-    ## Pretty labels for plotting
-    mutate(
-        Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
-        `Nationwide Index` = paste0("£",`NationwidePrice` %>% prettyNum(big.mark = ",")),
-        `Halifax Index` = paste0("£",HalifaxPrice %>% prettyNum(big.mark = ",")),
-        `New-Build (list) Prices` = paste0("£",NewPrice %>% prettyNum(big.mark = ",")),
-        `Lag-4 ONS New Price` = paste0("£",ONSNewPrice %>% prettyNum(big.mark = ",")),
-        `Lag-2 ONS Avg Price` = paste0("£",ONSAveragePrice %>% prettyNum(big.mark = ","))
-    ) %>%
-    mutate(
-        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
-        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
-        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
-        `Halifax Premium` = paste0(round(halifax_premium,1), "%")
-    ) %>%
-    ggplot(aes(x = date(Month), text1 = Date)) + 
-    xlab("Date (2022, 1M)") + ylab("000s of £s") +
-    ggtitle("House-Price Inflation") + 
-    scale_fill_manual(values = fills) + theme_bw() +
-    theme(legend.title = element_blank())
+  ## Pretty labels for plotting
+  mutate(
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)),
+    `Nationwide Index` = paste0("£", `NationwidePrice` %>% prettyNum(big.mark = ",")),
+    `Halifax Index` = paste0("£", HalifaxPrice %>% prettyNum(big.mark = ",")),
+    `New-Build (list) Prices` = paste0("£", NewPrice %>% prettyNum(big.mark = ",")),
+    `Lag-4 ONS New Price` = paste0("£", ONSNewPrice %>% prettyNum(big.mark = ",")),
+    `Lag-2 ONS Avg Price` = paste0("£", ONSAveragePrice %>% prettyNum(big.mark = ","))
+  ) %>%
+  mutate(
+    nationwide_premium = ((NewPrice - `NationwidePrice`) / `NationwidePrice`) * 100,
+    `Nationwide Premium` = paste0(round(nationwide_premium, 1), "%"),
+    halifax_premium = ((NewPrice - HalifaxPrice) / HalifaxPrice) * 100,
+    `Halifax Premium` = paste0(round(halifax_premium, 1), "%")
+  ) %>%
+  ggplot(aes(x = date(Month), text1 = Date)) +
+  xlab("Date (2022, 1M)") +
+  ylab("000s of £s") +
+  ggtitle("House-Price Inflation") +
+  scale_fill_manual(values = fills) +
+  theme_bw() +
+  theme(legend.title = element_blank())
 p2$labels$fill <- ""
 
 ### Developers' Weighted Average Prices in Cash Terms
-devs <- cat_plot(model2, "Month", modx = "rooms_min.f", mod2 = "developer", 
-         geom = "line", dodge.width = .2,
-         data = df,
-         partial.residuals = FALSE)$data %>%
+devs <- cat_plot(model2, "Month",
+  modx = "rooms_min.f", mod2 = "developer",
+  geom = "line", dodge.width = .2,
+  data = df,
+  partial.residuals = FALSE
+)$data %>%
   select(Month, developer, rooms_min.f, price, ymin, ymax) %>%
   mutate_if(is.numeric, function(x) exp(x) - 1) %>%
   left_join(
     .,
-    cat_plot(model2.from, "Month", modx = "rooms_min.f", mod2 = "developer",
-             geom = "line", dodge.width = .2, data = df,
-             partial.residuals = FALSE)$data %>% 
-  select(Month, developer, rooms_min.f, price.from, ymin, ymax) %>%
-  mutate_if(is.numeric, function(x) exp(x) - 1) %>%
-  rename_at(vars(contains("ym")), function(x) paste0(x,".from"))
+    cat_plot(model2.from, "Month",
+      modx = "rooms_min.f", mod2 = "developer",
+      geom = "line", dodge.width = .2, data = df,
+      partial.residuals = FALSE
+    )$data %>%
+      select(Month, developer, rooms_min.f, price.from, ymin, ymax) %>%
+      mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+      rename_at(vars(contains("ym")), function(x) paste0(x, ".from"))
   ) %>%
   left_join(
     .,
-    cat_plot(model2.upto, "Month", modx = "rooms_min.f", mod2 = "developer", 
-             geom = "line", dodge.width = .2,
-             data = df,
-             partial.residuals = FALSE)$data %>%
+    cat_plot(model2.upto, "Month",
+      modx = "rooms_min.f", mod2 = "developer",
+      geom = "line", dodge.width = .2,
+      data = df,
+      partial.residuals = FALSE
+    )$data %>%
       select(Month, developer, rooms_min.f, price.upto, ymin, ymax) %>%
       mutate_if(is.numeric, function(x) exp(x) - 1) %>%
-      rename_at(vars(contains("ym")), function(x) paste0(x,".upto"))
+      rename_at(vars(contains("ym")), function(x) paste0(x, ".upto"))
   ) %>%
-  mutate(price = .20*price.from +.60*price+.20*price.upto,
-         ymin = .20*ymin.from +.60*ymin+.20*ymin.upto,
-         ymax = .20*ymax.from +.60*ymax+.20*ymax.upto) %>%
+  mutate(
+    price = .20 * price.from + .60 * price + .20 * price.upto,
+    ymin = .20 * ymin.from + .60 * ymin + .20 * ymin.upto,
+    ymax = .20 * ymax.from + .60 * ymax + .20 * ymax.upto
+  ) %>%
   select(Month, developer, rooms_min.f, price, ymin, ymax) %>%
   group_by(developer, rooms_min.f) %>%
-  mutate(`1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
-         `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
-         Developer = str_remove(developer, "developer = "),
-         Price = paste0("£", prettyNum(round(price), big.mark = ",")),
-         Credible = paste0(
-           "[", prettyNum(round(ymin), big.mark = ","), "-",
-           prettyNum(round(ymax), big.mark = ",") ,"]"
-         ),
-         `Monthly Change` = scales::label_percent()(round(`1m%Change`/100, 4)),
-         `Annual Change` =  scales::label_percent()(round(`12m%Change`/100, 4)),
-         Date = date(yearmonth(Month)))
+  mutate(
+    `1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
+    `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
+    Developer = str_remove(developer, "developer = "),
+    Price = paste0("£", prettyNum(round(price), big.mark = ",")),
+    Credible = paste0(
+      "[", prettyNum(round(ymin), big.mark = ","), "-",
+      prettyNum(round(ymax), big.mark = ","), "]"
+    ),
+    `Monthly Change` = scales::label_percent()(round(`1m%Change` / 100, 4)),
+    `Annual Change` = scales::label_percent()(round(`12m%Change` / 100, 4)),
+    Date = date(yearmonth(Month))
+  )
 
-### Confidence 
-confidence_int <- cat_plot(model0, "Month", 
-                 geom = "line", dodge.width = .2,
-                 data = df,
-                 partial.residuals = FALSE)$data %>%
+### Confidence
+confidence_int <- cat_plot(model0, "Month",
+  geom = "line", dodge.width = .2,
+  data = df,
+  partial.residuals = FALSE
+)$data %>%
   select(Month, price, ymin, ymax) %>%
   mutate_if(is.numeric, function(x) exp(x) - 1) %>%
   left_join(
     .,
     cat_plot(model0.from, "Month",
-             geom = "line", dodge.width = .2, data = df,
-             partial.residuals = FALSE)$data %>% 
+      geom = "line", dodge.width = .2, data = df,
+      partial.residuals = FALSE
+    )$data %>%
       select(Month, price.from, ymin, ymax) %>%
       mutate_if(is.numeric, function(x) exp(x) - 1) %>%
-      rename_at(vars(contains("ym")), function(x) paste0(x,".from"))
+      rename_at(vars(contains("ym")), function(x) paste0(x, ".from"))
   ) %>%
   left_join(
     .,
-    cat_plot(model0.upto, "Month", 
-             geom = "line", dodge.width = .2,
-             data = df,
-             partial.residuals = FALSE)$data %>%
+    cat_plot(model0.upto, "Month",
+      geom = "line", dodge.width = .2,
+      data = df,
+      partial.residuals = FALSE
+    )$data %>%
       select(Month, price.upto, ymin, ymax) %>%
       mutate_if(is.numeric, function(x) exp(x) - 1) %>%
-      rename_at(vars(contains("ym")), function(x) paste0(x,".upto"))
+      rename_at(vars(contains("ym")), function(x) paste0(x, ".upto"))
   ) %>%
-  mutate(price = .20*price.from +.60*price+.20*price.upto,
-         ymin = .20*ymin.from +.60*ymin+.20*ymin.upto,
-         ymax = .20*ymax.from +.60*ymax+.20*ymax.upto) %>%
+  mutate(
+    price = .20 * price.from + .60 * price + .20 * price.upto,
+    ymin = .20 * ymin.from + .60 * ymin + .20 * ymin.upto,
+    ymax = .20 * ymax.from + .60 * ymax + .20 * ymax.upto
+  ) %>%
   select(Month, price, ymin, ymax) %>%
-  mutate(`1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
-         `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
-         Price = paste0("£", prettyNum(round(price), big.mark = ",")),
-         `Credible (list) Price` = paste0(
-           "[", prettyNum(round(ymin), big.mark = ","), "-",
-           prettyNum(round(ymax), big.mark = ",") ,"]"
-         ),
-         `Monthly Change` = scales::label_percent()(round(`1m%Change`/100, 4)),
-         `Annual % Change` =  scales::label_percent()(round(`12m%Change`/100, 4)),
-         Date = yearmonth(Month))
+  mutate(
+    `1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
+    `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
+    Price = paste0("£", prettyNum(round(price), big.mark = ",")),
+    `Credible (list) Price` = paste0(
+      "[", prettyNum(round(ymin), big.mark = ","), "-",
+      prettyNum(round(ymax), big.mark = ","), "]"
+    ),
+    `Monthly Change` = scales::label_percent()(round(`1m%Change` / 100, 4)),
+    `Annual % Change` = scales::label_percent()(round(`12m%Change` / 100, 4)),
+    Date = yearmonth(Month)
+  )
 
 ## Current Observation
-current_change <- change[(nrow(change)-1):nrow(change),] %>% 
+current_change <- change[(nrow(change) - 1):nrow(change), ] %>%
   mutate(
     ## Halifax Data With a Lag
     HalifaxPrice = if_else(
       is.na(HalifaxPrice), last(na.omit(HalifaxPrice)), HalifaxPrice
-      ),
+    ),
     `Halifax1m%Change` = if_else(
       is.na(`Halifax1m%Change`), last(na.omit(`Halifax1m%Change`)), `Halifax1m%Change`
-      ),
+    ),
     `Halifax12m%Change` = if_else(
       is.na(`Halifax12m%Change`), last(na.omit(`Halifax12m%Change`)), `Halifax12m%Change`
-      ),
-    ) %>%
-  .[nrow(.), ]  %>%
+    ),
+  ) %>%
+  .[nrow(.), ] %>%
   select_at(vars(!contains("Interpolation"))) %>%
-    mutate(
-        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
-        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
-        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
-        `Halifax Premium` = paste0(round(halifax_premium,1), "%")
-    ) %>%
   mutate(
-    across(matches("%"), ~formattable::percent(./100)),
-    across(matches("Price") & !matches("ONS"), ~paste0("£", prettyNum(round(.), big.mark= ",")))
-    ) %>% select(Month, sort(colnames(.)[-1])) %>%
+    nationwide_premium = ((NewPrice - `NationwidePrice`) / `NationwidePrice`) * 100,
+    `Nationwide Premium` = paste0(round(nationwide_premium, 1), "%"),
+    halifax_premium = ((NewPrice - HalifaxPrice) / HalifaxPrice) * 100,
+    `Halifax Premium` = paste0(round(halifax_premium, 1), "%")
+  ) %>%
+  mutate(
+    across(matches("%"), ~ formattable::percent(. / 100)),
+    across(matches("Price") & !matches("ONS"), ~ paste0("£", prettyNum(round(.), big.mark = ",")))
+  ) %>%
+  select(Month, sort(colnames(.)[-1])) %>%
   select(-nationwide_premium, -halifax_premium)
 ```
 
@@ -446,86 +498,108 @@ current_change <- change[(nrow(change)-1):nrow(change),] %>%
 
 ```{r}
 px02 <- change %>%
-    ## Pretty labels for plotting
-    mutate(
-        Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
-        `Nationwide Index` = paste0("£",`NationwidePrice` %>% prettyNum(big.mark = ",")),
-        `Halifax Index` = paste0("£",HalifaxPrice %>% prettyNum(big.mark = ",")),
-        `New-Build (list) Prices` = paste0("£",NewPrice %>% prettyNum(big.mark = ",")),
-        `Lag-4 ONS New Price` = paste0("£",ONSNewPrice %>% prettyNum(big.mark = ",")),
-        `Lag-2 ONS Avg Price` = paste0("£",ONSAveragePrice %>% prettyNum(big.mark = ","))
-    ) %>%
-    mutate(
-        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
-        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
-        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
-        `Halifax Premium` = paste0(round(halifax_premium,1), "%"),
-        name = "House-Price Inflation ('000s of £s)"
-    ) %>% 
+  ## Pretty labels for plotting
+  mutate(
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)),
+    `Nationwide Index` = paste0("£", `NationwidePrice` %>% prettyNum(big.mark = ",")),
+    `Halifax Index` = paste0("£", HalifaxPrice %>% prettyNum(big.mark = ",")),
+    `New-Build (list) Prices` = paste0("£", NewPrice %>% prettyNum(big.mark = ",")),
+    `Lag-4 ONS New Price` = paste0("£", ONSNewPrice %>% prettyNum(big.mark = ",")),
+    `Lag-2 ONS Avg Price` = paste0("£", ONSAveragePrice %>% prettyNum(big.mark = ","))
+  ) %>%
+  mutate(
+    nationwide_premium = ((NewPrice - `NationwidePrice`) / `NationwidePrice`) * 100,
+    `Nationwide Premium` = paste0(round(nationwide_premium, 1), "%"),
+    halifax_premium = ((NewPrice - HalifaxPrice) / HalifaxPrice) * 100,
+    `Halifax Premium` = paste0(round(halifax_premium, 1), "%"),
+    name = "House-Price Inflation ('000s of £s)"
+  ) %>%
   left_join(
-    confidence_int %>% 
-      select(Month=Date, price, ymin, ymax, `Credible (list) Price`) %>% 
+    confidence_int %>%
+      select(Month = Date, price, ymin, ymax, `Credible (list) Price`) %>%
       mutate(Month = date(Month))
-    ) %>%
-    ggplot(aes(date(Month))) + 
-    geom_col(aes(y = ONSNewPrice/1000, fill = "Lag-4 ONS New Price",
-                 text1 = Date,
-                 text5 = `Lag-4 ONS New Price`), 
-             alpha = .2, show.legend = T) +
-    geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices"), 
-             alpha = .5, show.legend = T) +
-    geom_crossbar(
-      aes(y=NewPrice/1000,ymin=ymin/1000, ymax=ymax/1000, 
-          fill = "New Build (list) Prices", 
-          col = "New Build (list) Prices",
-          text1 = Date,
-          text2 = `Nationwide Premium`, 
-          text3 = `Halifax Premium`,
-          text4 = `New-Build (list) Prices`,
-          text5 = `Credible (list) Price`), alpha = .2
-      ) +
-    xlab("Date (2022, 1M)") + ylab("000s of £s") +
-    scale_fill_manual(values = fills) + 
-    scale_color_manual(values = fills) + 
-    theme_dark() +
-    theme(legend.title = element_blank(), axis.text.x = element_blank()) + 
-    facet_wrap(vars(name))
+  ) %>%
+  ggplot(aes(date(Month))) +
+  geom_col(
+    aes(
+      y = ONSNewPrice / 1000, fill = "Lag-4 ONS New Price",
+      text1 = Date,
+      text5 = `Lag-4 ONS New Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_col(aes(y = NewPrice / 1000, fill = "New Build (list) Prices"),
+    alpha = .5, show.legend = T
+  ) +
+  geom_crossbar(
+    aes(
+      y = NewPrice / 1000, ymin = ymin / 1000, ymax = ymax / 1000,
+      fill = "New Build (list) Prices",
+      col = "New Build (list) Prices",
+      text1 = Date,
+      text2 = `Nationwide Premium`,
+      text3 = `Halifax Premium`,
+      text4 = `New-Build (list) Prices`,
+      text5 = `Credible (list) Price`
+    ),
+    alpha = .2
+  ) +
+  xlab("Date (2022, 1M)") +
+  ylab("000s of £s") +
+  scale_fill_manual(values = fills) +
+  scale_color_manual(values = fills) +
+  theme_dark() +
+  theme(legend.title = element_blank(), axis.text.x = element_blank()) +
+  facet_wrap(vars(name))
 px02$labels$fill <- ""
-px02 <- ggplotly(px02, tooltip = c("text1", "text5","text2","text3","text4")) %>% 
+px02 <- ggplotly(px02, tooltip = c("text1", "text5", "text2", "text3", "text4")) %>%
   layout(hovermode = "x")
 
 px04 <- devs %>%
-  ggplot(aes(date(Date), price/1000)) + 
+  ggplot(aes(date(Date), price / 1000)) +
   geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
-  geom_crossbar(aes(ymin=ymin/1000, ymax=ymax/1000, fill = Developer, col = Developer,
-                    text1 = Date,
-                    text2 = Price,
-                    text3 = Credible), 
-                position = position_dodge(20), alpha = .2) +
-  facet_grid(.~rooms_min.f, scales = "free_y") +
-  theme_dark()+
-  theme(axis.text.x = element_text(angle = 45),
-        legend.title = element_blank()) +
-  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  ylab("000's of £s") + xlab("") + 
-  scale_x_date(date_breaks = "2 months",
-               labels=date_format("%b-%Y"),
-               limits = as.Date(
-                 c(
-                   min(date(devs$Date)) %m-% months(1),
-                   max(date(devs$Date)) %m+% months(1)
-                   )
-                 ))
+  geom_crossbar(
+    aes(
+      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer, col = Developer,
+      text1 = Date,
+      text2 = Price,
+      text3 = Credible
+    ),
+    position = position_dodge(20), alpha = .2
+  ) +
+  facet_grid(. ~ rooms_min.f, scales = "free_y") +
+  theme_dark() +
+  theme(
+    axis.text.x = element_text(angle = 45),
+    legend.title = element_blank()
+  ) +
+  scale_fill_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  scale_color_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  ylab("000's of £s") +
+  xlab("") +
+  scale_x_date(
+    date_breaks = "2 months",
+    labels = date_format("%b-%Y"),
+    limits = as.Date(
+      c(
+        min(date(devs$Date)) %m-% months(1),
+        max(date(devs$Date)) %m+% months(1)
+      )
+    )
+  )
 px04$labels$fill <- ""
 px04$labels$colour <- ""
-px04 <- ggplotly(px04, tooltip = c("text1", "text2","text3")) %>% 
+px04 <- ggplotly(px04, tooltip = c("text1", "text2", "text3")) %>%
   layout(hovermode = "x")
-clean_plotly_legend(subplot(px02,px04,nrows = 2,shareX = F))
+clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 ```
 
 ------------------------------------------------------------------------
@@ -542,46 +616,82 @@ clean_plotly_legend(subplot(px02,px04,nrows = 2,shareX = F))
 
 ```{r bank}
 p0.1 <- p0 +
-  geom_col(aes(y = `Nationwide12m%Change`, fill="Nationwide Price Index", 
-               text2 = `Nationwide Index`),
-           alpha = .5, show.legend = T) +
-  geom_col(aes(y = `Halifax12m%Change`, fill = "Halifax Price Index", 
-               text3 = `Halifax Index`), 
-           alpha = .5, show.legend = T) +
-  geom_col(aes(y = `New12m%Change`, fill = "New Build (list) Prices", 
-               text3 = `New-Build (list) Prices`), 
-           alpha = .5, show.legend = T) 
+  geom_col(
+    aes(
+      y = `Nationwide12m%Change`, fill = "Nationwide Price Index",
+      text2 = `Nationwide Index`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `Halifax12m%Change`, fill = "Halifax Price Index",
+      text3 = `Halifax Index`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `New12m%Change`, fill = "New Build (list) Prices",
+      text3 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  )
 p1.1 <- p1 +
-  geom_col(aes(y = `Nationwide1m%Change`, fill="Nationwide Price Index", 
-               text2 = `Nationwide Index`),
-           alpha = .5, show.legend = T) +
-  geom_col(aes(y = `Halifax1m%Change`, fill = "Halifax Price Index", 
-               text3 = `Halifax Index`), 
-           alpha = .5, show.legend = T) +
-  geom_col(aes(y = `New1m%Change`, fill = "New Build (list) Prices", 
-               text5 = `New-Build (list) Prices`), 
-           alpha = .5, show.legend = T) 
+  geom_col(
+    aes(
+      y = `Nationwide1m%Change`, fill = "Nationwide Price Index",
+      text2 = `Nationwide Index`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `Halifax1m%Change`, fill = "Halifax Price Index",
+      text3 = `Halifax Index`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `New1m%Change`, fill = "New Build (list) Prices",
+      text5 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  )
 p2.1 <- p2 +
-  geom_col(aes(y = `NationwidePrice`/1000, fill="Nationwide Price Index",
-                 text3 = `Nationwide Index`), alpha = .5, show.legend = T) +
-  geom_col(aes(y = HalifaxPrice/1000, fill = "Halifax Price Index",
-                 text4 = `Halifax Index`), 
-             alpha = .5, show.legend = T) +
-  geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices",
-                 text2 = `Nationwide Premium`, 
-                 text3 = `Halifax Premium`,
-                 text4 = `New-Build (list) Prices`), 
-             alpha = .5, show.legend = T)
-    
+  geom_col(aes(
+    y = `NationwidePrice` / 1000, fill = "Nationwide Price Index",
+    text3 = `Nationwide Index`
+  ), alpha = .5, show.legend = T) +
+  geom_col(
+    aes(
+      y = HalifaxPrice / 1000, fill = "Halifax Price Index",
+      text4 = `Halifax Index`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = NewPrice / 1000, fill = "New Build (list) Prices",
+      text2 = `Nationwide Premium`,
+      text3 = `Halifax Premium`,
+      text4 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  )
+
 
 p0.1 <- ggplotly(p0.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
   layout(hovermode = "x")
 p1.1 <- ggplotly(p1.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
-  layout(hovermode = "x") 
+  layout(hovermode = "x")
 p2.1 <- ggplotly(p2.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
-  layout(hovermode = "x") 
-p <- subplot(p1.1, p2.1, p0.1, nrows = 3, 
-        titleX = FALSE,titleY = TRUE, shareX = T) 
+  layout(hovermode = "x")
+p <- subplot(p1.1, p2.1, p0.1,
+  nrows = 3,
+  titleX = FALSE, titleY = TRUE, shareX = T
+)
 clean_plotly_legend(p)
 ```
 
@@ -600,75 +710,137 @@ clean_plotly_legend(p)
 ### UK (nominal) house-price inflation -- Confirmed Land Registry Sales-Price v/s New-Build Prices in % and Cash Terms.
 
 ```{r halifax}
-p0 <- p0 + 
-  geom_col(aes(y = `ONSNew12m%Change`, fill = "Lag-4 ONS New Price", 
-               text4 = `Lag-4 ONS New Price`), 
-           alpha = .2, show.legend = T) +
-  geom_col(aes(y = `ONS12m%Change`, fill = "Lag-2 ONS Avg Price", 
-               text4 = `Lag-2 ONS Avg Price`), 
-           alpha = .2, show.legend = T) +
-  geom_hline(aes(yintercept = rate, 
-                 fill = "Avg. Inflation Rate (`HPI%`, 10-years)", 
-                 text6 = `HPI% (10yr)`),
-             col = "red", data = air, linetype = "solid") +
-  geom_hline(aes(yintercept = rate, 
-                 fill = "Avg. Inflation Rate (`HPI%`, 2005-Now)", 
-                 text6 = `HPI% ('05-)`),
-             col = "red", data = air2, linetype = "dotted") +
-  geom_col(aes(y = `New12m%Change`, fill = "New Build (list) Prices", 
-               text3 = `New-Build (list) Prices`), 
-           alpha = .5, show.legend = T) 
+p0 <- p0 +
+  geom_col(
+    aes(
+      y = `ONSNew12m%Change`, fill = "Lag-4 ONS New Price",
+      text4 = `Lag-4 ONS New Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `ONS12m%Change`, fill = "Lag-2 ONS Avg Price",
+      text4 = `Lag-2 ONS Avg Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_hline(
+    aes(
+      yintercept = rate,
+      fill = "Avg. Inflation Rate (`HPI%`, 10-years)",
+      text6 = `HPI% (10yr)`
+    ),
+    col = "red", data = air, linetype = "solid"
+  ) +
+  geom_hline(
+    aes(
+      yintercept = rate,
+      fill = "Avg. Inflation Rate (`HPI%`, 2005-Now)",
+      text6 = `HPI% ('05-)`
+    ),
+    col = "red", data = air2, linetype = "dotted"
+  ) +
+  geom_col(
+    aes(
+      y = `New12m%Change`, fill = "New Build (list) Prices",
+      text3 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  )
 
 p1 <- p1 +
-  geom_col(aes(y = `ONSNew1m%Change`, fill = "Lag-4 ONS New Price", 
-               text4 = `Lag-4 ONS New Price`), 
-           alpha = .2, show.legend = T) +
-  geom_col(aes(y = `ONS1m%Change`, fill = "Lag-2 ONS Avg Price", 
-               text4 = `Lag-2 ONS Avg Price`), 
-           alpha = .2, show.legend = T) +
-  geom_col(aes(y = `New1m%Change`, fill = "New Build (list) Prices", 
-               text5 = `New-Build (list) Prices`), 
-           alpha = .5, show.legend = T) 
+  geom_col(
+    aes(
+      y = `ONSNew1m%Change`, fill = "Lag-4 ONS New Price",
+      text4 = `Lag-4 ONS New Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `ONS1m%Change`, fill = "Lag-2 ONS Avg Price",
+      text4 = `Lag-2 ONS Avg Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = `New1m%Change`, fill = "New Build (list) Prices",
+      text5 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  )
 
 p2 <- p2 +
-  geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices",
-                 text4 = `New-Build (list) Prices`), 
-             alpha = .5, show.legend = T) +
-  geom_col(aes(y = ONSNewPrice/1000, fill = "Lag-4 ONS New Price", 
-                 text5 = `Lag-4 ONS New Price`), 
-             alpha = .2, show.legend = T) +
-  geom_col(aes(y = ONSAveragePrice/1000, fill = "Lag-2 ONS Avg Price", 
-                 text5 = `Lag-2 ONS Avg Price`), 
-             alpha = .2, show.legend = T) +
-  geom_line(aes(y=`Linear Interpolation.(ONS New Price, 10-years)`, 
-                  fill = "Linear Interpolation.(ONS New Price, 10-years)",
-                  text5 = `Interpolated.(ONS New Price, 10yr)`,
-                  group = 1),
-              col = "black", linetype = "solid") +
-  geom_line(aes(y=`Linear Interpolation.(ONS New Price, 2005-Now)`, 
-                  fill = "Linear Interpolation.(ONS New Price, 2005-Now)",
-                  text5 = `Interpolated.(ONS New Price, '05-)`,
-                  group = 1),
-              col = "black", linetype = "dotted") +
-  geom_line(aes(y=`Linear Interpolation.(ONS Avg Price, 10-years)`, 
-                  fill = "Linear Interpolation.(ONS Avg Price, 10-years)",
-                  text6 = `Interpolated.(ONS Avg Price)`,
-                  group = 1),
-              col = "grey", linetype = "solid") +
-  geom_line(aes(y=`Linear Interpolation.(ONS Avg Price, 2005-Now)`, 
-                  fill = "Linear Interpolation.(ONS Avg Price, 2005-Now)",
-                  text6 = `Interpolated.(ONS Avg Price, '05-)`,
-                  group = 1),
-              col = "grey", linetype = "dotted")
+  geom_col(
+    aes(
+      y = NewPrice / 1000, fill = "New Build (list) Prices",
+      text4 = `New-Build (list) Prices`
+    ),
+    alpha = .5, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = ONSNewPrice / 1000, fill = "Lag-4 ONS New Price",
+      text5 = `Lag-4 ONS New Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_col(
+    aes(
+      y = ONSAveragePrice / 1000, fill = "Lag-2 ONS Avg Price",
+      text5 = `Lag-2 ONS Avg Price`
+    ),
+    alpha = .2, show.legend = T
+  ) +
+  geom_line(
+    aes(
+      y = `Linear Interpolation.(ONS New Price, 10-years)`,
+      fill = "Linear Interpolation.(ONS New Price, 10-years)",
+      text5 = `Interpolated.(ONS New Price, 10yr)`,
+      group = 1
+    ),
+    col = "black", linetype = "solid"
+  ) +
+  geom_line(
+    aes(
+      y = `Linear Interpolation.(ONS New Price, 2005-Now)`,
+      fill = "Linear Interpolation.(ONS New Price, 2005-Now)",
+      text5 = `Interpolated.(ONS New Price, '05-)`,
+      group = 1
+    ),
+    col = "black", linetype = "dotted"
+  ) +
+  geom_line(
+    aes(
+      y = `Linear Interpolation.(ONS Avg Price, 10-years)`,
+      fill = "Linear Interpolation.(ONS Avg Price, 10-years)",
+      text6 = `Interpolated.(ONS Avg Price)`,
+      group = 1
+    ),
+    col = "grey", linetype = "solid"
+  ) +
+  geom_line(
+    aes(
+      y = `Linear Interpolation.(ONS Avg Price, 2005-Now)`,
+      fill = "Linear Interpolation.(ONS Avg Price, 2005-Now)",
+      text6 = `Interpolated.(ONS Avg Price, '05-)`,
+      group = 1
+    ),
+    col = "grey", linetype = "dotted"
+  )
 
 p0 <- ggplotly(p0, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
   layout(hovermode = "x")
 p1 <- ggplotly(p1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
-  layout(hovermode = "x") 
+  layout(hovermode = "x")
 p2 <- ggplotly(p2, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
-  layout(hovermode = "x") 
-p <- subplot(p1, p2, p0, nrows = 3, 
-        titleX = FALSE,titleY = TRUE, shareX = T) 
+  layout(hovermode = "x")
+p <- subplot(p1, p2, p0,
+  nrows = 3,
+  titleX = FALSE, titleY = TRUE, shareX = T
+)
 clean_plotly_legend(p)
 ```
 
@@ -689,93 +861,122 @@ clean_plotly_legend(p)
 ```{r games}
 pp30 <- devs %>%
   mutate(Facet = "Annual % Change") %>%
-  ggplot(aes(date(Date), `12m%Change`)) + 
-  geom_col(aes(fill = Developer,
-               text1 = Date,
-               text2 = `Annual Change`), position = position_dodge(20), alpha = .7) +
-  facet_grid(Facet~rooms_min.f, scales = "free_y") +
-  theme_dark()+
+  ggplot(aes(date(Date), `12m%Change`)) +
+  geom_col(aes(
+    fill = Developer,
+    text1 = Date,
+    text2 = `Annual Change`
+  ), position = position_dodge(20), alpha = .7) +
+  facet_grid(Facet ~ rooms_min.f, scales = "free_y") +
+  theme_dark() +
   theme(axis.text.x = element_text(angle = 45)) +
-  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                                "Bellway-Homes" = viridis::magma(3)[2],
-                                "Persimmon-Homes" = viridis::magma(3)[3])) +
-  ylab("000's of £s") + xlab("") +
-  geom_hline(yintercept = 0, linetype = "dashed") + 
-  scale_x_date(date_breaks = "3 months",
-               labels=date_format("%b-%Y"),
-               limits = as.Date(
-                 c(
-                   min(date(devs$Date)) %m-% months(1),
-                   max(date(devs$Date)) %m+% months(3)
-                   )
-                 ))
+  scale_fill_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  scale_color_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  ylab("000's of £s") +
+  xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_x_date(
+    date_breaks = "3 months",
+    labels = date_format("%b-%Y"),
+    limits = as.Date(
+      c(
+        min(date(devs$Date)) %m-% months(1),
+        max(date(devs$Date)) %m+% months(3)
+      )
+    )
+  )
 
-pp30 <- plotly::ggplotly(pp30, tooltip = c("text1","text2","text3")) %>%
+pp30 <- plotly::ggplotly(pp30, tooltip = c("text1", "text2", "text3")) %>%
   layout(hovermode = "x") %>%
   clean_plotly_legend()
 pp31 <- devs %>%
   mutate(Facet = "000s of £s") %>%
-  ggplot(aes(date(Date), price/1000)) + 
+  ggplot(aes(date(Date), price / 1000)) +
   geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
-  geom_crossbar(aes(ymin=ymin/1000, ymax=ymax/1000, fill = Developer, col = Developer,
-                    text1 = Date,
-                    text2 = Price,
-                    text3 = Credible), 
-                position = position_dodge(20), alpha = .2) +
-  facet_grid(Facet~rooms_min.f, scales = "free_y") +
-  theme_dark()+
+  geom_crossbar(
+    aes(
+      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer, col = Developer,
+      text1 = Date,
+      text2 = Price,
+      text3 = Credible
+    ),
+    position = position_dodge(20), alpha = .2
+  ) +
+  facet_grid(Facet ~ rooms_min.f, scales = "free_y") +
+  theme_dark() +
   theme(axis.text.x = element_blank()) +
-  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  ylab("000's of £s") + xlab("") + 
-  scale_x_date(date_breaks = "3 months",
-               labels=date_format("%b-%Y"),
-               limits = as.Date(
-                 c(
-                   min(date(devs$Date)) %m-% months(1),
-                   max(date(devs$Date)) %m+% months(3)
-                   )
-                 ))
-pp31 <- plotly::ggplotly(pp31, tooltip = c("text1","text2","text3")) %>%
+  scale_fill_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  scale_color_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  ylab("000's of £s") +
+  xlab("") +
+  scale_x_date(
+    date_breaks = "3 months",
+    labels = date_format("%b-%Y"),
+    limits = as.Date(
+      c(
+        min(date(devs$Date)) %m-% months(1),
+        max(date(devs$Date)) %m+% months(3)
+      )
+    )
+  )
+pp31 <- plotly::ggplotly(pp31, tooltip = c("text1", "text2", "text3")) %>%
   layout(hovermode = "x") %>%
   clean_plotly_legend()
 pp32 <- devs %>%
   mutate(Facet = "Monthly % Change") %>%
-  ggplot(aes(date(Date), `1m%Change`)) + 
-  geom_col(aes(fill = Developer,
-               text1 = Date,
-               text2 = `Monthly Change`), position = position_dodge(20), alpha = .7) +
-  facet_grid(.~rooms_min.f, scales = "free_y") +
-  theme_dark()+
+  ggplot(aes(date(Date), `1m%Change`)) +
+  geom_col(aes(
+    fill = Developer,
+    text1 = Date,
+    text2 = `Monthly Change`
+  ), position = position_dodge(20), alpha = .7) +
+  facet_grid(. ~ rooms_min.f, scales = "free_y") +
+  theme_dark() +
   theme(axis.text.x = element_blank()) +
-  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                               "Bellway-Homes" = viridis::magma(3)[2],
-                               "Persimmon-Homes" = viridis::magma(3)[3])) +
-  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
-                                "Bellway-Homes" = viridis::magma(3)[2],
-                                "Persimmon-Homes" = viridis::magma(3)[3])) +
-  ylab("000's of £s") + xlab("") +
-  geom_hline(yintercept = 0, linetype = "dashed") + 
-  scale_x_date(date_breaks = "3 months",
-               labels=date_format("%b-%Y"),
-               limits = as.Date(
-                 c(
-                   min(date(devs$Date)) %m-% months(1),
-                   max(date(devs$Date)) %m+% months(3)
-                   )
-                 ))
-pp32 <- plotly::ggplotly(pp32, tooltip = c("text1","text2","text3")) %>%
+  scale_fill_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  scale_color_manual(values = c(
+    "Barratt-Homes" = viridis::magma(3)[1],
+    "Bellway-Homes" = viridis::magma(3)[2],
+    "Persimmon-Homes" = viridis::magma(3)[3]
+  )) +
+  ylab("000's of £s") +
+  xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_x_date(
+    date_breaks = "3 months",
+    labels = date_format("%b-%Y"),
+    limits = as.Date(
+      c(
+        min(date(devs$Date)) %m-% months(1),
+        max(date(devs$Date)) %m+% months(3)
+      )
+    )
+  )
+pp32 <- plotly::ggplotly(pp32, tooltip = c("text1", "text2", "text3")) %>%
   layout(hovermode = "x") %>%
   clean_plotly_legend()
 
-subplot(pp32,pp31,pp30,nrows = 3) %>%
+subplot(pp32, pp31, pp30, nrows = 3) %>%
   clean_plotly_legend()
 ```
 
@@ -794,38 +995,44 @@ subplot(pp32,pp31,pp30,nrows = 3) %>%
 ### Regional Variance and New-Build Prices Across European Electoral Regions - Regional averages and confidence-bounds
 
 ```{r regions}
-d_reg <- interactions::cat_plot(model3, "Month", modx = "european_electoral_region",
-                                mod2 = "rooms_min.f",
-         colors = rainbow(11), 
-         geom = "line", dodge.width = .2,
-         data = df %>% filter(european_electoral_region != "London") %>% 
-           mutate(european_electoral_region = factor(european_electoral_region)),
-         partial.residuals = FALSE)$data
+d_reg <- interactions::cat_plot(model3, "Month",
+  modx = "european_electoral_region",
+  mod2 = "rooms_min.f",
+  colors = rainbow(11),
+  geom = "line", dodge.width = .2,
+  data = df %>% filter(european_electoral_region != "London") %>%
+    mutate(european_electoral_region = factor(european_electoral_region)),
+  partial.residuals = FALSE
+)$data
 
-p_reg <- d_reg %>% 
+p_reg <- d_reg %>%
   select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax) %>%
   mutate_if(is.numeric, function(x) exp(x) - 1) %>%
-  mutate(Month = yearmonth(Month),
-         Price = scales::dollar(price, prefix = "£", suffix = "K", sale = .001),
-         Credible = paste0(
-           "[", scales::dollar(ymin, prefix = "£", suffix = "K", sale = .001), " to ",
-           scales::dollar(ymax, prefix = "£", suffix = "K", sale = .001), "]"
-         ),
-         Date = yearmonth(Month),
-         Rooms = str_remove(rooms_min.f, "rooms_min.f = "),
-         Region = european_electoral_region) %>%
+  mutate(
+    Month = yearmonth(Month),
+    Price = scales::dollar(price, prefix = "£", suffix = "K", sale = .001),
+    Credible = paste0(
+      "[", scales::dollar(ymin, prefix = "£", suffix = "K", sale = .001), " to ",
+      scales::dollar(ymax, prefix = "£", suffix = "K", sale = .001), "]"
+    ),
+    Date = yearmonth(Month),
+    Rooms = str_remove(rooms_min.f, "rooms_min.f = "),
+    Region = european_electoral_region
+  ) %>%
   ggplot(aes(Month)) +
   geom_errorbar(aes(ymin = ymin, ymax = ymax, col = Region), width = .5) +
   geom_line(aes(y = price, col = Region)) +
-  geom_point(aes(y = price, col = Region,
-                 text1 = Date, text2 = Price, text3 = Credible, text4 = Region)) +
+  geom_point(aes(
+    y = price, col = Region,
+    text1 = Date, text2 = Price, text3 = Credible, text4 = Region
+  )) +
   facet_wrap(vars(Rooms)) +
   theme_dark() +
   theme(axis.text.x = element_text(angle = 45)) +
   scale_y_continuous(labels = scales::dollar_format(prefix = "£", suffix = "K", scale = .001))
 
 p4 <- ggplotly(p_reg, tooltip = c("text1", "text2", "text3", "text4"))
-p4 <- clean_plotly_legend(p4) 
+p4 <- clean_plotly_legend(p4)
 p4$x$layout$legend$title$text <- ""
 
 p4
@@ -848,20 +1055,24 @@ p4
 ### Data statement - Pivot table and overview of method and assumptions.
 
 ```{r pivot}
-dat_pivot_prices <- select(df, -listings,-room_range) %>% 
+dat_pivot_prices <- select(df, -listings, -room_range) %>%
   mutate(minimum_bedrooms = rooms_min.f) %>%
   select(-rooms_min.f) %>%
-  select(date, period, Year, Month, developer, developement, address, 
-         postcode, nuts, nhs_ha, european_electoral_region, 
-         minimum_bedrooms, price_mean, price_from, price_upto,
-         change_from, change_mean, change_upto) %>%
+  select(
+    date, period, Year, Month, developer, developement, address,
+    postcode, nuts, nhs_ha, european_electoral_region,
+    minimum_bedrooms, price_mean, price_from, price_upto,
+    change_from, change_mean, change_upto
+  ) %>%
   mutate(date = bsts::LastDayInMonth(date)) %>%
   unique()
- dat_pivot_prices %>%
-  rpivotTable(rows = c("developer","minimum_bedrooms","european_electoral_region","developement"), 
-              cols = c("date"),
-              aggregatorName = "Average", vals = "price_mean", 
-              rendererName = "Heatmap")
+dat_pivot_prices %>%
+  rpivotTable(
+    rows = c("developer", "minimum_bedrooms", "european_electoral_region", "developement"),
+    cols = c("date"),
+    aggregatorName = "Average", vals = "price_mean",
+    rendererName = "Heatmap"
+  )
 ```
 
 ------------------------------------------------------------------------
@@ -888,7 +1099,7 @@ dat_pivot_prices <- select(df, -listings,-room_range) %>%
 # Create placeholder for the downloadButton
 uiOutput("downloadUI")
 # Create the actual downloadButton
-output$downloadUI <- renderUI( {
+output$downloadUI <- renderUI({
   downloadButton("downBtn", "Download new-build price data", style = "width:30%;")
 })
 # Add download handling
@@ -897,10 +1108,13 @@ output$downBtn <- downloadHandler(
     paste0("NewPrice_BarrattBellwayPersimmon", Sys.Date(), ".csv")
   },
   content = function(file) {
-    write.csv(select(df, -listings,-room_range) %>% 
-                mutate(minimum_bedrooms = rooms_min.f) %>%
-                select(-rooms_min.f,-price), 
-              file, row.names = FALSE)
+    write.csv(
+      select(df, -listings, -room_range) %>%
+        mutate(minimum_bedrooms = rooms_min.f) %>%
+        select(-rooms_min.f, -price),
+      file,
+      row.names = FALSE
+    )
   }
 )
 ```
