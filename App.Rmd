@@ -1,0 +1,906 @@
+---
+title: "New-Build House Prices"
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    author: "spande-cpu"
+    storyboard: yes
+    theme:
+      bootswatch: spacelab
+      base_font:
+        google: Lato
+    css: docs/styles.css
+    logo: docs/logo.png
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{=html}
+<style>
+.rpivotTable{ overflow-x: scroll; }
+  .bggrey {
+     background-color: black;
+}
+  thead {
+     color: black;
+     cex: 15;
+  }
+  .navbar-inverse {
+   background-color: black;
+}
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: grey}
+}
+</style>
+```
+
+```{r setup, include=FALSE}
+#bslib::bs_themer()
+### Load Dependanciesshboard)
+library(shiny)
+library(plotly)
+library(interactions)
+library(rpivotTable)
+library(tidyverse)
+library(tidytext)
+library(lubridate)
+library(lmerTest)
+library(httr)
+library(tsibble)
+library(scales)
+#source("##Data_Preperation.R")
+
+## Function that takes a faceted plotly object and returns one with clean labels
+## Clean plotly legend
+clean_plotly_legend <- function(plotly_object) {
+  d <- data.frame(id = seq_along(plotly_object$x$data), 
+                  legend_entries = unlist(lapply(plotly_object$x$data, `[[`, "name")))
+  # Extract the group identifier
+  d$legend_group <- gsub("^\\((.*?),\\d+\\)", "\\1", d$legend_entries)
+  # Add an indicator for the first entry per group
+  d$is_first <- !duplicated(d$legend_group)
+  for (i in d$id) {
+    # Is the layer the first entry of the group?
+    is_first <- d$is_first[[i]]
+    # Assign the group identifier to the name and legendgroup arguments
+    plotly_object$x$data[[i]]$name <- d$legend_group[[i]]
+    plotly_object$x$data[[i]]$legendgroup <- plotly_object$x$data[[i]]$name
+    # Show the legend only for the first layer of the group 
+    if (!is_first) plotly_object$x$data[[i]]$showlegend <- FALSE
+  }
+  plotly_object
+}
+
+### Load Dataset
+df <- readRDS(
+  "./processed_data/new_build_prices_clean.RDS"
+) %>% 
+  rename("data_scraped_on" = "Date") %>%
+  mutate(data_scraped_on = date(data_scraped_on), period = data_scraped_on %m-% months(1)) %>%
+  mutate(date=date(tsibble::yearmonth(period))) %>%
+  mutate(rooms_min.f = paste0(rooms_min.f, " Bedrooms"),
+         price = log(price_mean),
+         price.from = log(price_from),
+         price.upto = log(price_upto)) %>%
+  group_by(Month, developer, european_electoral_region, rooms_min.f) %>%
+  mutate(listings = length(unique(developement)),
+         Month = yearmonth(date))
+df$Month <- factor(df$Month)
+
+### Load models
+model0 <- read_rds("./models/model0.rds")
+model1 <- read_rds("./models/model1.rds")
+model2 <- read_rds("./models/model2.rds")
+model3 <- read_rds("./models/model3.rds")
+
+model0.from <- read_rds("./models/model0.from.rds")
+model1.from <- read_rds("./models/model1.from.rds")
+model2.from <- read_rds("./models/model2.from.rds")
+model3.from <- read_rds("./models/model3.from.rds")
+
+model0.upto <- read_rds("./models/model0.upto.rds")
+model1.upto <- read_rds("./models/model1.upto.rds")
+model2.upto <- read_rds("./models/model2.upto.rds")
+model3.upto <- read_rds("./models/model3.upto.rds")
+
+
+### Halifax index (100=1992)
+halifax <- tibble(
+  date = seq.Date(date("2021-06-01"), date("2024-01-01"), by = "month"),
+  halifax_prices  = c(
+    260973, 261165, 263162, 267516, 270184, 272778, 275996, ## 2021
+    276645, 279741, 283001, 286242, 289666, 293586, 293173, 293992, 293664, 292406,
+    285425, 281713, ## 2022
+    282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
+    284039, 287244, ## 2023
+    291029),
+  halifax_change = c(-.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
+                     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30,-.1, -.4, -2.4, -1.3, ##2022
+                     0.2, 1.2, 0.8, -0.4,-0.2,-0.1,-0.4, -1.8, -.3, 1.2,
+                     .6, 1.1, ## 2023
+                     1.3),
+  annual_hfx_change = c(9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
+                        9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ##2022
+                        2.1,2.1, 1.6, 0.1,-1.1,-2.6,-2.5,-4.5,-4.5,-3.1,
+                        -.8, 1.8, ## 2023
+                        2.5)
+) %>% filter(date >= date("2022-01-01"))
+options(scipen = 999)
+
+### Nationwide Data
+nationwide <- readRDS("./processed_data/nationwide_sample_data.rds")
+### Full Data
+tf <- readRDS("./processed_data/nationwide_full_data.rds")
+
+### ONS Data
+ons <- readRDS("./processed_data/UK-HPI.rds") %>%
+  mutate(Date = as.Date(Date))
+
+ons_new_lm <- lm(
+  ONSNewPrice/1000 ~ Month, 
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) %>%
+                  filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
+  )
+ons_avg_lm <- lm(
+  ONSAveragePrice/1000 ~ Month,
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) %>%
+                  filter(Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))
+  )
+ons_new_lm2 <- lm(
+  ONSNewPrice/1000 ~ Month, 
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) 
+  )
+ons_avg_lm2 <- lm(
+  ONSAveragePrice/1000 ~ Month,
+  data = mutate(filter(ons, !is.na(ONSNewPrice)), Month = yearmonth(Date)) 
+  )
+
+
+### New Build Prices (Average from, mean, upto)
+new_build_price_average <- tibble(
+  from = c(
+  rep(NA, 1),
+    (c((exp(as.numeric(fixef(model0.from)[1]))-1),
+       (exp(as.numeric(fixef(model0.from)[1]))-1)+
+         (exp(as.numeric(fixef(model0.from)[1]))-1)*(exp(as.numeric(fixef(model0.from)[-1]))-1)) %>% round())
+  ),
+  mean = c(
+  rep(NA, 1),
+    (c((exp(as.numeric(fixef(model0)[1]))-1),
+       (exp(as.numeric(fixef(model0)[1]))-1)+
+         (exp(as.numeric(fixef(model0)[1]))-1)*(exp(as.numeric(fixef(model0)[-1]))-1)) %>% round())
+  ),
+  upto = c(
+  rep(NA, 1),
+    (c((exp(as.numeric(fixef(model0.upto)[1]))-1),
+       (exp(as.numeric(fixef(model0.upto)[1]))-1)+
+         (exp(as.numeric(fixef(model0.upto)[1]))-1)*(exp(as.numeric(fixef(model0.upto)[-1]))-1)) %>% round())
+  )
+) %>% mutate(average = (0.20*from+0.60*mean+0.20*upto))
+
+### All Index Averages Since 2006 (1st Data Point for New Builds)
+air <- tibble(
+  rate = round(
+  mean(
+    c(
+      mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONS12m%Change`, na.rm = T),
+      mean(filter(ons, Date >= (date(yearmonth(Sys.Date())) %m-% years(10)))$`ONSNew12m%Change`, na.rm = T),
+      tf %>% 
+        filter(...1 >= (date(yearmonth(Sys.Date())) %m-% years(10))) %>% .$`Year % Change` %>% mean()*100
+      )
+    ),2
+  ),
+  `HPI% (10yr)` = paste0("+", rate, "%")
+)
+air2 <- tibble(
+  rate = round(
+  mean(
+    c(
+      mean(filter(ons, Date >= date("2006-01-01"))$`ONS12m%Change`, na.rm = T),
+      mean(filter(ons, Date >= date("2006-01-01"))$`ONSNew12m%Change`, na.rm = T),
+      tf %>% 
+        filter(year(...1) > 2005) %>% .$`Year % Change` %>% mean()*100
+      )
+    ),2
+  ),
+  `HPI% ('05-)` = paste0("+", rate, "%")
+)
+
+### Data
+change <- tibble(
+  Month = seq.Date(min(nationwide$date), max(df$date), by = "month"),
+  new_build_prices = new_build_price_average$average,
+  new_build_change = round((c(
+    rep(NA, 1),
+    diff(new_build_prices)
+  )/new_build_prices)*100, 2)
+) %>%
+  full_join(nationwide, by = c("Month"="date")) %>%
+  mutate(nationwide_change = round(nationwide_change*100,2),
+         nationwide_prices = round(nationwide_prices,0)) %>%
+  full_join(halifax, by = c("Month"="date")) %>%
+  mutate(annual_nbd_change = c(rep(NA,12), diff(new_build_prices, 12))/lag(new_build_prices, 12),
+         annual_nbd_change = annual_nbd_change*100,
+         annual_nwd_change = annual_nwd_change*100,
+         annual_hfx_change = annual_hfx_change) %>%
+  rename("NewPrice" = "new_build_prices",
+         "New1m%Change" = "new_build_change",
+         "New12m%Change" = "annual_nbd_change", 
+         "HalifaxPrice" = "halifax_prices",
+         "Halifax1m%Change" = "halifax_change",
+         "Halifax12m%Change" = "annual_hfx_change",
+         "NationwidePrice" = "nationwide_prices",
+         "Nationwide1m%Change" = "nationwide_change",
+         "Nationwide12m%Change" = "annual_nwd_change",
+  ) %>%
+  left_join(., ons, by = c("Month" = "Date")) %>%
+  mutate(`Linear Interpolation.(ONS New Price, 10-years)` = predict(ons_new_lm, .),
+         `Linear Interpolation.(ONS Avg Price, 10-years)` = predict(ons_avg_lm, .),
+         `Interpolated.(ONS New Price, 10yr)` = paste0(
+           "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 10-years)`*1000), 
+                                        big.mark = ",")
+           ),
+         `Interpolated.(ONS Avg Price)` = paste0(
+           "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 10-years)`*1000), 
+                                        big.mark = ",")
+           ),
+         `Linear Interpolation.(ONS New Price, 2005-Now)` = predict(ons_new_lm2, .),
+         `Linear Interpolation.(ONS Avg Price, 2005-Now)` = predict(ons_avg_lm2, .),
+         `Interpolated.(ONS New Price, '05-)` = paste0(
+           "£", prettyNum(round(`Linear Interpolation.(ONS New Price, 2005-Now)`*1000), 
+                                        big.mark = ",")
+           ),
+         `Interpolated.(ONS Avg Price, '05-)` = paste0(
+           "£", prettyNum(round(`Linear Interpolation.(ONS Avg Price, 2005-Now)`*1000), 
+                                        big.mark = ",")
+           ))
+### Legend
+cols <- c("#440154FF", "#3B528BFF", "#21908CFF", "#5DC863FF", "#FDE725FF", "red", "black")
+fills <- c(
+  "Nationwide Price Index" = cols[4],
+  "Halifax Price Index" = cols[1],
+  "Lag-4 ONS New Price" = cols[2],
+  "Lag-2 ONS Avg Price" = cols[3],
+  "New Build (list) Prices" = cols[5],
+  "Linear Interpolation.(ONS New Price, 10-years)" = "black",
+  "Linear Interpolation.(ONS New Price, 2005-Now)" = "black",
+  "Linear Interpolation.(ONS Avg Price, 10-years)" = "black",
+  "Linear Interpolation.(ONS Avg Price, 2005-Now)" = "black",
+  "Average Inflation Rate (`HPI%`, 10-years)" = "red",
+  "Average Inflation Rate (`HPI%`, 2005-Now)" = "red"
+)
+  
+p0 <- change %>%
+  ## Pretty labels for plotting
+  mutate(
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
+    `Nationwide Index` = paste0(round(`Nationwide12m%Change`,2), "%"),
+    `Halifax Index` = paste0(round(`Halifax12m%Change`,2), "%"),
+    `New-Build (list) Prices` = paste0(round(`New12m%Change`,2), "%"),
+    `Lag-4 ONS New Price` = paste0(round(`ONSNew12m%Change`,2), "%"),
+    `Lag-2 ONS Avg Price` = paste0(round(`ONS12m%Change`,2), "%")
+    ) %>%
+  ggplot(aes(x = date(Month), text1 = Date)) + 
+  xlab("Date (2022, 1M)") + ylab("Annual % change") +
+  ggtitle("House-Price Inflation") + 
+  scale_fill_manual(values = fills) + theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_hline(yintercept = 0, lty = "dashed", col = "black")
+p0$labels$fill <- ""
+
+p1 <- change %>%
+  ## Pretty labels for plotting
+  mutate(
+    Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
+    `Nationwide Index` = paste0(`Nationwide1m%Change`, "%"),
+    `Halifax Index` = paste0(`Halifax1m%Change`, "%"),
+    `New-Build (list) Prices` = paste0(`New1m%Change`, "%"),
+    `Lag-4 ONS New Price` = paste0(round(`ONSNew1m%Change`,2), "%"),
+    `Lag-2 ONS Avg Price` = paste0(round(`ONS1m%Change`,2), "%")
+    ) %>%
+  ggplot(aes(x = date(Month), text1 = Date)) + 
+  xlab("Date (2022, 1M)") + ylab("Monthly % change") +
+  ggtitle("House-Price Inflation") + 
+  scale_fill_manual(values = fills) + theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_hline(yintercept = 0, lty = "dashed", col = "black") 
+p1$labels$fill <- ""
+
+p2 <- change %>%
+    ## Pretty labels for plotting
+    mutate(
+        Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
+        `Nationwide Index` = paste0("£",`NationwidePrice` %>% prettyNum(big.mark = ",")),
+        `Halifax Index` = paste0("£",HalifaxPrice %>% prettyNum(big.mark = ",")),
+        `New-Build (list) Prices` = paste0("£",NewPrice %>% prettyNum(big.mark = ",")),
+        `Lag-4 ONS New Price` = paste0("£",ONSNewPrice %>% prettyNum(big.mark = ",")),
+        `Lag-2 ONS Avg Price` = paste0("£",ONSAveragePrice %>% prettyNum(big.mark = ","))
+    ) %>%
+    mutate(
+        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
+        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
+        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
+        `Halifax Premium` = paste0(round(halifax_premium,1), "%")
+    ) %>%
+    ggplot(aes(x = date(Month), text1 = Date)) + 
+    xlab("Date (2022, 1M)") + ylab("000s of £s") +
+    ggtitle("House-Price Inflation") + 
+    scale_fill_manual(values = fills) + theme_bw() +
+    theme(legend.title = element_blank())
+p2$labels$fill <- ""
+
+### Developers' Weighted Average Prices in Cash Terms
+devs <- cat_plot(model2, "Month", modx = "rooms_min.f", mod2 = "developer", 
+         geom = "line", dodge.width = .2,
+         data = df,
+         partial.residuals = FALSE)$data %>%
+  select(Month, developer, rooms_min.f, price, ymin, ymax) %>%
+  mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+  left_join(
+    .,
+    cat_plot(model2.from, "Month", modx = "rooms_min.f", mod2 = "developer",
+             geom = "line", dodge.width = .2, data = df,
+             partial.residuals = FALSE)$data %>% 
+  select(Month, developer, rooms_min.f, price.from, ymin, ymax) %>%
+  mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+  rename_at(vars(contains("ym")), function(x) paste0(x,".from"))
+  ) %>%
+  left_join(
+    .,
+    cat_plot(model2.upto, "Month", modx = "rooms_min.f", mod2 = "developer", 
+             geom = "line", dodge.width = .2,
+             data = df,
+             partial.residuals = FALSE)$data %>%
+      select(Month, developer, rooms_min.f, price.upto, ymin, ymax) %>%
+      mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+      rename_at(vars(contains("ym")), function(x) paste0(x,".upto"))
+  ) %>%
+  mutate(price = .20*price.from +.60*price+.20*price.upto,
+         ymin = .20*ymin.from +.60*ymin+.20*ymin.upto,
+         ymax = .20*ymax.from +.60*ymax+.20*ymax.upto) %>%
+  select(Month, developer, rooms_min.f, price, ymin, ymax) %>%
+  group_by(developer, rooms_min.f) %>%
+  mutate(`1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
+         `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
+         Developer = str_remove(developer, "developer = "),
+         Price = paste0("£", prettyNum(round(price), big.mark = ",")),
+         Credible = paste0(
+           "[", prettyNum(round(ymin), big.mark = ","), "-",
+           prettyNum(round(ymax), big.mark = ",") ,"]"
+         ),
+         `Monthly Change` = scales::label_percent()(round(`1m%Change`/100, 4)),
+         `Annual Change` =  scales::label_percent()(round(`12m%Change`/100, 4)),
+         Date = date(yearmonth(Month)))
+
+### Confidence 
+confidence_int <- cat_plot(model0, "Month", 
+                 geom = "line", dodge.width = .2,
+                 data = df,
+                 partial.residuals = FALSE)$data %>%
+  select(Month, price, ymin, ymax) %>%
+  mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+  left_join(
+    .,
+    cat_plot(model0.from, "Month",
+             geom = "line", dodge.width = .2, data = df,
+             partial.residuals = FALSE)$data %>% 
+      select(Month, price.from, ymin, ymax) %>%
+      mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+      rename_at(vars(contains("ym")), function(x) paste0(x,".from"))
+  ) %>%
+  left_join(
+    .,
+    cat_plot(model0.upto, "Month", 
+             geom = "line", dodge.width = .2,
+             data = df,
+             partial.residuals = FALSE)$data %>%
+      select(Month, price.upto, ymin, ymax) %>%
+      mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+      rename_at(vars(contains("ym")), function(x) paste0(x,".upto"))
+  ) %>%
+  mutate(price = .20*price.from +.60*price+.20*price.upto,
+         ymin = .20*ymin.from +.60*ymin+.20*ymin.upto,
+         ymax = .20*ymax.from +.60*ymax+.20*ymax.upto) %>%
+  select(Month, price, ymin, ymax) %>%
+  mutate(`1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
+         `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
+         Price = paste0("£", prettyNum(round(price), big.mark = ",")),
+         `Credible (list) Price` = paste0(
+           "[", prettyNum(round(ymin), big.mark = ","), "-",
+           prettyNum(round(ymax), big.mark = ",") ,"]"
+         ),
+         `Monthly Change` = scales::label_percent()(round(`1m%Change`/100, 4)),
+         `Annual % Change` =  scales::label_percent()(round(`12m%Change`/100, 4)),
+         Date = yearmonth(Month))
+
+## Current Observation
+current_change <- change[(nrow(change)-1):nrow(change),] %>% 
+  mutate(
+    ## Halifax Data With a Lag
+    HalifaxPrice = if_else(
+      is.na(HalifaxPrice), last(na.omit(HalifaxPrice)), HalifaxPrice
+      ),
+    `Halifax1m%Change` = if_else(
+      is.na(`Halifax1m%Change`), last(na.omit(`Halifax1m%Change`)), `Halifax1m%Change`
+      ),
+    `Halifax12m%Change` = if_else(
+      is.na(`Halifax12m%Change`), last(na.omit(`Halifax12m%Change`)), `Halifax12m%Change`
+      ),
+    ) %>%
+  .[nrow(.), ]  %>%
+  select_at(vars(!contains("Interpolation"))) %>%
+    mutate(
+        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
+        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
+        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
+        `Halifax Premium` = paste0(round(halifax_premium,1), "%")
+    ) %>%
+  mutate(
+    across(matches("%"), ~formattable::percent(./100)),
+    across(matches("Price") & !matches("ONS"), ~paste0("£", prettyNum(round(.), big.mark= ",")))
+    ) %>% select(Month, sort(colnames(.)[-1])) %>%
+  select(-nationwide_premium, -halifax_premium)
+```
+
+### UK (nominal) house-price inflation -- Headlines
+
+```{r}
+px02 <- change %>%
+    ## Pretty labels for plotting
+    mutate(
+        Date = tsibble::yearmonth(bsts::LastDayInMonth(Month)), 
+        `Nationwide Index` = paste0("£",`NationwidePrice` %>% prettyNum(big.mark = ",")),
+        `Halifax Index` = paste0("£",HalifaxPrice %>% prettyNum(big.mark = ",")),
+        `New-Build (list) Prices` = paste0("£",NewPrice %>% prettyNum(big.mark = ",")),
+        `Lag-4 ONS New Price` = paste0("£",ONSNewPrice %>% prettyNum(big.mark = ",")),
+        `Lag-2 ONS Avg Price` = paste0("£",ONSAveragePrice %>% prettyNum(big.mark = ","))
+    ) %>%
+    mutate(
+        nationwide_premium = ((NewPrice-`NationwidePrice`)/`NationwidePrice`) * 100,
+        `Nationwide Premium` = paste0(round(nationwide_premium,1), "%"),
+        halifax_premium = ((NewPrice-HalifaxPrice)/HalifaxPrice) * 100,
+        `Halifax Premium` = paste0(round(halifax_premium,1), "%"),
+        name = "House-Price Inflation ('000s of £s)"
+    ) %>% 
+  left_join(
+    confidence_int %>% 
+      select(Month=Date, price, ymin, ymax, `Credible (list) Price`) %>% 
+      mutate(Month = date(Month))
+    ) %>%
+    ggplot(aes(date(Month))) + 
+    geom_col(aes(y = ONSNewPrice/1000, fill = "Lag-4 ONS New Price",
+                 text1 = Date,
+                 text5 = `Lag-4 ONS New Price`), 
+             alpha = .2, show.legend = T) +
+    geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices"), 
+             alpha = .5, show.legend = T) +
+    geom_crossbar(
+      aes(y=NewPrice/1000,ymin=ymin/1000, ymax=ymax/1000, 
+          fill = "New Build (list) Prices", 
+          col = "New Build (list) Prices",
+          text1 = Date,
+          text2 = `Nationwide Premium`, 
+          text3 = `Halifax Premium`,
+          text4 = `New-Build (list) Prices`,
+          text5 = `Credible (list) Price`), alpha = .2
+      ) +
+    xlab("Date (2022, 1M)") + ylab("000s of £s") +
+    scale_fill_manual(values = fills) + 
+    scale_color_manual(values = fills) + 
+    theme_dark() +
+    theme(legend.title = element_blank(), axis.text.x = element_blank()) + 
+    facet_wrap(vars(name))
+px02$labels$fill <- ""
+px02 <- ggplotly(px02, tooltip = c("text1", "text5","text2","text3","text4")) %>% 
+  layout(hovermode = "x")
+
+px04 <- devs %>%
+  ggplot(aes(date(Date), price/1000)) + 
+  geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
+  geom_crossbar(aes(ymin=ymin/1000, ymax=ymax/1000, fill = Developer, col = Developer,
+                    text1 = Date,
+                    text2 = Price,
+                    text3 = Credible), 
+                position = position_dodge(20), alpha = .2) +
+  facet_grid(.~rooms_min.f, scales = "free_y") +
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 45),
+        legend.title = element_blank()) +
+  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  ylab("000's of £s") + xlab("") + 
+  scale_x_date(date_breaks = "2 months",
+               labels=date_format("%b-%Y"),
+               limits = as.Date(
+                 c(
+                   min(date(devs$Date)) %m-% months(1),
+                   max(date(devs$Date)) %m+% months(1)
+                   )
+                 ))
+px04$labels$fill <- ""
+px04$labels$colour <- ""
+px04 <- ggplotly(px04, tooltip = c("text1", "text2","text3")) %>% 
+  layout(hovermode = "x")
+clean_plotly_legend(subplot(px02,px04,nrows = 2,shareX = F))
+```
+
+------------------------------------------------------------------------
+
+-   Showing some signs positive momentum, **developer list prices have risen by `r current_change[,15]`** in the period of Dec-Jan 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`).
+
+-   In year-on-year terms, new-build **prices are marginally above their levels from this time last year** and have remained markedly less volatile than prices across the aggregate market (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+
+-   Developer list-prices continued to demonstrate volatility across the smallest and largest property sizes however, **mid-sized homes have remained close to last year's prices and in some cases, have shown positive year-on-year growth**.
+
+-   **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
+
+### UK (nominal) house-price inflation -- Bank-Indices v/s New-Build Prices in % and Cash Terms
+
+```{r bank}
+p0.1 <- p0 +
+  geom_col(aes(y = `Nationwide12m%Change`, fill="Nationwide Price Index", 
+               text2 = `Nationwide Index`),
+           alpha = .5, show.legend = T) +
+  geom_col(aes(y = `Halifax12m%Change`, fill = "Halifax Price Index", 
+               text3 = `Halifax Index`), 
+           alpha = .5, show.legend = T) +
+  geom_col(aes(y = `New12m%Change`, fill = "New Build (list) Prices", 
+               text3 = `New-Build (list) Prices`), 
+           alpha = .5, show.legend = T) 
+p1.1 <- p1 +
+  geom_col(aes(y = `Nationwide1m%Change`, fill="Nationwide Price Index", 
+               text2 = `Nationwide Index`),
+           alpha = .5, show.legend = T) +
+  geom_col(aes(y = `Halifax1m%Change`, fill = "Halifax Price Index", 
+               text3 = `Halifax Index`), 
+           alpha = .5, show.legend = T) +
+  geom_col(aes(y = `New1m%Change`, fill = "New Build (list) Prices", 
+               text5 = `New-Build (list) Prices`), 
+           alpha = .5, show.legend = T) 
+p2.1 <- p2 +
+  geom_col(aes(y = `NationwidePrice`/1000, fill="Nationwide Price Index",
+                 text3 = `Nationwide Index`), alpha = .5, show.legend = T) +
+  geom_col(aes(y = HalifaxPrice/1000, fill = "Halifax Price Index",
+                 text4 = `Halifax Index`), 
+             alpha = .5, show.legend = T) +
+  geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices",
+                 text2 = `Nationwide Premium`, 
+                 text3 = `Halifax Premium`,
+                 text4 = `New-Build (list) Prices`), 
+             alpha = .5, show.legend = T)
+    
+
+p0.1 <- ggplotly(p0.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x")
+p1.1 <- ggplotly(p1.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x") 
+p2.1 <- ggplotly(p2.1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x") 
+p <- subplot(p1.1, p2.1, p0.1, nrows = 3, 
+        titleX = FALSE,titleY = TRUE, shareX = T) 
+clean_plotly_legend(p)
+```
+
+------------------------------------------------------------------------
+
+-   This chart compares annual and monthly (listed) house-price inflation for New-Build Homes (Barratt, Bellway and Persimmon average) against the Halifax and Nationwide house-price indices.
+
+-   Double-click an item in the legend to isolate a trace on the graph.
+
+-   **Monthly Change:** (∆Halifax = `r current_change[,4]`, ∆Nationwide = `r current_change[,12]`, ∆NewBuild = `r current_change[,15]`).
+
+-   **Annual Change:** (∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`, ∆NewBuild = `r current_change[1,14]`)
+
+-   The list-price of an average Bellway, Persimmon and Barratt home currently stands at `r current_change[,16]`, commanding significant premiums over the aggregate market. Halifax = `r current_change[,2]` (`r current_change[,5]`), Nationwide = `r current_change[,10]` (`r current_change[,13]`).
+
+### UK (nominal) house-price inflation -- Confirmed Land Registry Sales-Price v/s New-Build Prices in % and Cash Terms.
+
+```{r halifax}
+p0 <- p0 + 
+  geom_col(aes(y = `ONSNew12m%Change`, fill = "Lag-4 ONS New Price", 
+               text4 = `Lag-4 ONS New Price`), 
+           alpha = .2, show.legend = T) +
+  geom_col(aes(y = `ONS12m%Change`, fill = "Lag-2 ONS Avg Price", 
+               text4 = `Lag-2 ONS Avg Price`), 
+           alpha = .2, show.legend = T) +
+  geom_hline(aes(yintercept = rate, 
+                 fill = "Avg. Inflation Rate (`HPI%`, 10-years)", 
+                 text6 = `HPI% (10yr)`),
+             col = "red", data = air, linetype = "solid") +
+  geom_hline(aes(yintercept = rate, 
+                 fill = "Avg. Inflation Rate (`HPI%`, 2005-Now)", 
+                 text6 = `HPI% ('05-)`),
+             col = "red", data = air2, linetype = "dotted") +
+  geom_col(aes(y = `New12m%Change`, fill = "New Build (list) Prices", 
+               text3 = `New-Build (list) Prices`), 
+           alpha = .5, show.legend = T) 
+
+p1 <- p1 +
+  geom_col(aes(y = `ONSNew1m%Change`, fill = "Lag-4 ONS New Price", 
+               text4 = `Lag-4 ONS New Price`), 
+           alpha = .2, show.legend = T) +
+  geom_col(aes(y = `ONS1m%Change`, fill = "Lag-2 ONS Avg Price", 
+               text4 = `Lag-2 ONS Avg Price`), 
+           alpha = .2, show.legend = T) +
+  geom_col(aes(y = `New1m%Change`, fill = "New Build (list) Prices", 
+               text5 = `New-Build (list) Prices`), 
+           alpha = .5, show.legend = T) 
+
+p2 <- p2 +
+  geom_col(aes(y = NewPrice/1000, fill = "New Build (list) Prices",
+                 text4 = `New-Build (list) Prices`), 
+             alpha = .5, show.legend = T) +
+  geom_col(aes(y = ONSNewPrice/1000, fill = "Lag-4 ONS New Price", 
+                 text5 = `Lag-4 ONS New Price`), 
+             alpha = .2, show.legend = T) +
+  geom_col(aes(y = ONSAveragePrice/1000, fill = "Lag-2 ONS Avg Price", 
+                 text5 = `Lag-2 ONS Avg Price`), 
+             alpha = .2, show.legend = T) +
+  geom_line(aes(y=`Linear Interpolation.(ONS New Price, 10-years)`, 
+                  fill = "Linear Interpolation.(ONS New Price, 10-years)",
+                  text5 = `Interpolated.(ONS New Price, 10yr)`,
+                  group = 1),
+              col = "black", linetype = "solid") +
+  geom_line(aes(y=`Linear Interpolation.(ONS New Price, 2005-Now)`, 
+                  fill = "Linear Interpolation.(ONS New Price, 2005-Now)",
+                  text5 = `Interpolated.(ONS New Price, '05-)`,
+                  group = 1),
+              col = "black", linetype = "dotted") +
+  geom_line(aes(y=`Linear Interpolation.(ONS Avg Price, 10-years)`, 
+                  fill = "Linear Interpolation.(ONS Avg Price, 10-years)",
+                  text6 = `Interpolated.(ONS Avg Price)`,
+                  group = 1),
+              col = "grey", linetype = "solid") +
+  geom_line(aes(y=`Linear Interpolation.(ONS Avg Price, 2005-Now)`, 
+                  fill = "Linear Interpolation.(ONS Avg Price, 2005-Now)",
+                  text6 = `Interpolated.(ONS Avg Price, '05-)`,
+                  group = 1),
+              col = "grey", linetype = "dotted")
+
+p0 <- ggplotly(p0, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x")
+p1 <- ggplotly(p1, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x") 
+p2 <- ggplotly(p2, tooltip = c("text1", "text2", "text3", "text4", "text5", "text6")) %>%
+  layout(hovermode = "x") 
+p <- subplot(p1, p2, p0, nrows = 3, 
+        titleX = FALSE,titleY = TRUE, shareX = T) 
+clean_plotly_legend(p)
+```
+
+------------------------------------------------------------------------
+
+-   This chart compares annual and monthly (listed) house-price inflation for New-Build Homes (Barratt, Bellway and Persimmon average) against confirmed sales price data recorded by the ONS for average sale-prices and new-prices.
+
+-   Double-click on a legend item to isolate a trace on the graph.
+
+-   Note that the ONS data is recorded with a 2- (Average Price) and 4- (New Price) period lag as it is produced by reconciling land-registry information. It is likely the best estimate for nominal house-prices.
+
+-   The **linear interpolations** on the chart are **representative of long-term trends** in new (and average) prices for either the previous 10 years or since 2005 (the beginning of ONS records for New-Build sales prices).
+
+-   Move to the next panel to see how developers are setting prices across property sizes.
+
+### Developer price setting behaviour and variance in property-pricing by property-size
+
+```{r games}
+pp30 <- devs %>%
+  mutate(Facet = "Annual % Change") %>%
+  ggplot(aes(date(Date), `12m%Change`)) + 
+  geom_col(aes(fill = Developer,
+               text1 = Date,
+               text2 = `Annual Change`), position = position_dodge(20), alpha = .7) +
+  facet_grid(Facet~rooms_min.f, scales = "free_y") +
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 45)) +
+  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                                "Bellway-Homes" = viridis::magma(3)[2],
+                                "Persimmon-Homes" = viridis::magma(3)[3])) +
+  ylab("000's of £s") + xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  scale_x_date(date_breaks = "3 months",
+               labels=date_format("%b-%Y"),
+               limits = as.Date(
+                 c(
+                   min(date(devs$Date)) %m-% months(1),
+                   max(date(devs$Date)) %m+% months(3)
+                   )
+                 ))
+
+pp30 <- plotly::ggplotly(pp30, tooltip = c("text1","text2","text3")) %>%
+  layout(hovermode = "x") %>%
+  clean_plotly_legend()
+pp31 <- devs %>%
+  mutate(Facet = "000s of £s") %>%
+  ggplot(aes(date(Date), price/1000)) + 
+  geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
+  geom_crossbar(aes(ymin=ymin/1000, ymax=ymax/1000, fill = Developer, col = Developer,
+                    text1 = Date,
+                    text2 = Price,
+                    text3 = Credible), 
+                position = position_dodge(20), alpha = .2) +
+  facet_grid(Facet~rooms_min.f, scales = "free_y") +
+  theme_dark()+
+  theme(axis.text.x = element_blank()) +
+  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  ylab("000's of £s") + xlab("") + 
+  scale_x_date(date_breaks = "3 months",
+               labels=date_format("%b-%Y"),
+               limits = as.Date(
+                 c(
+                   min(date(devs$Date)) %m-% months(1),
+                   max(date(devs$Date)) %m+% months(3)
+                   )
+                 ))
+pp31 <- plotly::ggplotly(pp31, tooltip = c("text1","text2","text3")) %>%
+  layout(hovermode = "x") %>%
+  clean_plotly_legend()
+pp32 <- devs %>%
+  mutate(Facet = "Monthly % Change") %>%
+  ggplot(aes(date(Date), `1m%Change`)) + 
+  geom_col(aes(fill = Developer,
+               text1 = Date,
+               text2 = `Monthly Change`), position = position_dodge(20), alpha = .7) +
+  facet_grid(.~rooms_min.f, scales = "free_y") +
+  theme_dark()+
+  theme(axis.text.x = element_blank()) +
+  scale_fill_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                               "Bellway-Homes" = viridis::magma(3)[2],
+                               "Persimmon-Homes" = viridis::magma(3)[3])) +
+  scale_color_manual(values = c("Barratt-Homes" = viridis::magma(3)[1],
+                                "Bellway-Homes" = viridis::magma(3)[2],
+                                "Persimmon-Homes" = viridis::magma(3)[3])) +
+  ylab("000's of £s") + xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  scale_x_date(date_breaks = "3 months",
+               labels=date_format("%b-%Y"),
+               limits = as.Date(
+                 c(
+                   min(date(devs$Date)) %m-% months(1),
+                   max(date(devs$Date)) %m+% months(3)
+                   )
+                 ))
+pp32 <- plotly::ggplotly(pp32, tooltip = c("text1","text2","text3")) %>%
+  layout(hovermode = "x") %>%
+  clean_plotly_legend()
+
+subplot(pp32,pp31,pp30,nrows = 3) %>%
+  clean_plotly_legend()
+```
+
+------------------------------------------------------------------------
+
+-   Pricing has continued on a downward trend across all three developers.
+
+-   The largest 4+ bedroom properties have pulled back prices sharply across all developers.
+
+-   Smaller Persimmon properties have retained some upward momentum, while Bellway has reduced prices across all property sizes. This may suggest a sharper impact on the more premium end of the new-build market.
+
+-   Double click on a legend item to compare a trace based on property-size. **Note:** the cash-values on the plot represent the **East-Midlands average**.
+
+-   Move to the next panel to see how prices for new-build properties differ across UK regions.
+
+### Regional Variance and New-Build Prices Across European Electoral Regions - Regional averages and confidence-bounds
+
+```{r regions}
+d_reg <- interactions::cat_plot(model3, "Month", modx = "european_electoral_region",
+                                mod2 = "rooms_min.f",
+         colors = rainbow(11), 
+         geom = "line", dodge.width = .2,
+         data = df %>% filter(european_electoral_region != "London") %>% 
+           mutate(european_electoral_region = factor(european_electoral_region)),
+         partial.residuals = FALSE)$data
+
+p_reg <- d_reg %>% 
+  select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax) %>%
+  mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+  mutate(Month = yearmonth(Month),
+         Price = scales::dollar(price, prefix = "£", suffix = "K", sale = .001),
+         Credible = paste0(
+           "[", scales::dollar(ymin, prefix = "£", suffix = "K", sale = .001), " to ",
+           scales::dollar(ymax, prefix = "£", suffix = "K", sale = .001), "]"
+         ),
+         Date = yearmonth(Month),
+         Rooms = str_remove(rooms_min.f, "rooms_min.f = "),
+         Region = european_electoral_region) %>%
+  ggplot(aes(Month)) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax, col = Region), width = .5) +
+  geom_line(aes(y = price, col = Region)) +
+  geom_point(aes(y = price, col = Region,
+                 text1 = Date, text2 = Price, text3 = Credible, text4 = Region)) +
+  facet_wrap(vars(Rooms)) +
+  theme_dark() +
+  theme(axis.text.x = element_text(angle = 45)) +
+  scale_y_continuous(labels = scales::dollar_format(prefix = "£", suffix = "K", scale = .001))
+
+p4 <- ggplotly(p_reg, tooltip = c("text1", "text2", "text3", "text4"))
+p4 <- clean_plotly_legend(p4) 
+p4$x$layout$legend$title$text <- ""
+
+p4
+```
+
+------------------------------------------------------------------------
+
+-   Double-click on a legend item to isolate a trace corresponding to a specific region.
+
+-   London remains the most expensive region in the UK by-far, commanding a nearly `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionLondon"]))-1)*100,1),"%")` premium on a comparable development within the East-Midlands.
+
+-   Relative to the East-Midlands, the South-East, Eastern, South-West and West-Midlands command premiums of `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth East"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionEastern"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth West"]))-1)*100,1),"%")` and `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWest Midlands"]))-1)*100,1),"%")` respectively.
+
+-   Conversely, the North-East, North-West and Scotland are relatively cheaper with an equivalent property in the East-Midlands commanding a premium of `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth East"]))-1)*100,1),"%")`, `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth West"]))-1)*100,1),"%")` and `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionScotland"]))-1)*100,1),"%")` respectively.
+
+-   Relative to the East-Midlands, a similar development in Wales is about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWales"]))-1)*100,1),"%")` more expensive while in Yorkshire and the Humber, about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionYorkshire and The Humber"]))-1)*100,1),"%")` cheaper. Yet, prices in these regions are comparable and not statistically distinguishable from the East-Midlands average.
+
+-   On average, a 2-bedroom property commands a `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f2 Bedrooms"]))-1)*100,1),"%")` premium, a 3-bedroom property a `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f3 Bedrooms"]))-1)*100,1),"%")` premium. The largest properties, with 4 or more bedrooms are about `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f4+ Bedrooms"]))-1)*100,1),"%")` more expensive than a 1-bedroom property in the same regions.
+
+### Data statement - Pivot table and overview of method and assumptions.
+
+```{r pivot}
+dat_pivot_prices <- select(df, -listings,-room_range) %>% 
+  mutate(minimum_bedrooms = rooms_min.f) %>%
+  select(-rooms_min.f) %>%
+  select(date, period, Year, Month, developer, developement, address, 
+         postcode, nuts, nhs_ha, european_electoral_region, 
+         minimum_bedrooms, price_mean, price_from, price_upto,
+         change_from, change_mean, change_upto) %>%
+  mutate(date = bsts::LastDayInMonth(date)) %>%
+  unique()
+ dat_pivot_prices %>%
+  rpivotTable(rows = c("developer","minimum_bedrooms","european_electoral_region","developement"), 
+              cols = c("date"),
+              aggregatorName = "Average", vals = "price_mean", 
+              rendererName = "Heatmap")
+```
+
+------------------------------------------------------------------------
+
+-   Data was gathered over the indexing period by crawling developer websites for listings, including price and property size details.
+
+-   In some cases, postcodes are approximated to the nearest postcode given an out-code. This is for cases where the ONS postcode-lookup database does not contain a postcode for a given development.
+
+-   The sample includes data for 3 major UK developers - Barratt-Homes, Persimmon-Homes and Bellway-Homes.
+
+-   The price data represents prices at the level of an individual development. In most cases, prices are expressed as a range (price start - price upto), we take the mean of this range as representing the value of an average property within a development.
+
+-   In addition to prices, we gather data on the average property size (proxy the minimum no. of bedrooms) as well as location, including the European electoral region, local areas, postcodes and geographical coordinates.
+
+-   The estimates reported here are predictions from a [mixed-effects regression model](https://www.jstatsoft.org/article/download/v030b03/321). The fixed terms in the model include - the developer, the minimum no. of rooms within a development and the European electoral region as population-level effects. In addition, there are controls for the total no. of developments listed (as a proxy for a change in the stock of developments) and the range of rooms available within a development (e.g. where a development may include 1-3 bedroom properties, the range is 2). To account for the fact that we do not incorporate measures for factors such as square-footage, energy-efficiency ratings, amenities and/or qualitative features such as a view etc. that are likely to vary across individual developments as well as properties within a development, we compartmentalise this variance through adjusting the population averages for such unexplained sources of price-heterogeneity across local administrative districts. The model explains about 79% of the variance in prices. Of this, about 55% is due to the fixed terms (developer, rooms, region, range and no. of listings) and the remaining 24% is accounted for as sub-regional variance.
+
+-   Use the pivot table to the left to drill deeper into the data. You can create custom visualisations using the selector currently set to "Heatmap".
+
+-   To download a local copy of this dataset, click the link on the last panel.
+
+### Data statement - Download dataset.
+
+```{r download}
+# Create placeholder for the downloadButton
+uiOutput("downloadUI")
+# Create the actual downloadButton
+output$downloadUI <- renderUI( {
+  downloadButton("downBtn", "Download new-build price data", style = "width:30%;")
+})
+# Add download handling
+output$downBtn <- downloadHandler(
+  filename = function() {
+    paste0("NewPrice_BarrattBellwayPersimmon", Sys.Date(), ".csv")
+  },
+  content = function(file) {
+    write.csv(select(df, -listings,-room_range) %>% 
+                mutate(minimum_bedrooms = rooms_min.f) %>%
+                select(-rooms_min.f,-price), 
+              file, row.names = FALSE)
+  }
+)
+```
