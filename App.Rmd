@@ -94,20 +94,20 @@ df <- readRDS(
 df$Month <- factor(df$Month)
 
 ### Load models
-model0 <- read_rds("./models/model0.rds")
-model1 <- read_rds("./models/model1.rds")
-model2 <- read_rds("./models/model2.rds")
-model3 <- read_rds("./models/model3.rds")
+model0 <- read_rds("./models/model0.RDS")
+model1 <- read_rds("./models/model1.RDS")
+model2 <- read_rds("./models/model2.RDS")
+model3 <- read_rds("./models/model3.RDS")
 
-model0.from <- read_rds("./models/model0.from.rds")
-model1.from <- read_rds("./models/model1.from.rds")
-model2.from <- read_rds("./models/model2.from.rds")
-model3.from <- read_rds("./models/model3.from.rds")
+model0.from <- read_rds("./models/model0.from.RDS")
+model1.from <- read_rds("./models/model1.from.RDS")
+model2.from <- read_rds("./models/model2.from.RDS")
+model3.from <- read_rds("./models/model3.from.RDS")
 
-model0.upto <- read_rds("./models/model0.upto.rds")
-model1.upto <- read_rds("./models/model1.upto.rds")
-model2.upto <- read_rds("./models/model2.upto.rds")
-model3.upto <- read_rds("./models/model3.upto.rds")
+model0.upto <- read_rds("./models/model0.upto.RDS")
+model1.upto <- read_rds("./models/model1.upto.RDS")
+model2.upto <- read_rds("./models/model2.upto.RDS")
+model3.upto <- read_rds("./models/model3.upto.RDS")
 
 
 ### Halifax index (100=1992)
@@ -139,12 +139,12 @@ halifax <- tibble(
 options(scipen = 999)
 
 ### Nationwide Data
-nationwide <- readRDS("./processed_data/nationwide_sample_data.rds")
+nationwide <- readRDS("./processed_data/nationwide_sample_data.RDS")
 ### Full Data
-tf <- readRDS("./processed_data/nationwide_full_data.rds")
+tf <- readRDS("./processed_data/nationwide_full_data.RDS")
 
 ### ONS Data
-ons <- readRDS("./processed_data/UK-HPI.rds") %>%
+ons <- readRDS("./processed_data/UK-HPI.RDS") %>%
   mutate(Date = as.Date(Date))
 
 ons_new_lm <- lm(

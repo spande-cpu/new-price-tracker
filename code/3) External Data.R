@@ -16,8 +16,8 @@ nationwide_small <- nationwide %>%
   dplyr::select(date, nationwide_prices, nationwide_change, annual_nwd_change) %>% 
   filter(lubridate::year(date) >= 2022) %>%
   mutate(date = lubridate::date(date))
-saveRDS(nationwide_small, paste0("./processed_data/nationwide_sample_data.rds"))
-saveRDS(nationwide, paste0("./processed_data/nationwide_full_data.rds"))
+saveRDS(nationwide_small, paste0("./processed_data/nationwide_sample_data.RDS"))
+saveRDS(nationwide, paste0("./processed_data/nationwide_full_data.RDS"))
 
 # Get ONS Data
 current <- month(today() %m-% months(3))
@@ -31,5 +31,5 @@ uk_hpi <- uk_hpi %>%
          `ONSNew12m%Change` = `New12m%Change`,
          ONSNewVolume = NewSalesVolume, ONSVolume = OldSalesVolume) %>%
   mutate(Date = as.Date(Date, "%d/%m/%Y"))
-saveRDS(uk_hpi, "./processed_data/UK-HPI.rds")
+saveRDS(uk_hpi, "./processed_data/UK-HPI.RDS")
 
