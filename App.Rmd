@@ -604,11 +604,11 @@ clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 
 ------------------------------------------------------------------------
 
--   Showing some signs positive momentum, **developer list prices have risen by `r current_change[,15]`** in the period of Dec-Jan 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`).
+-   In a return to price growth, **developer list prices have risen by `r current_change[,15]`** in the period of Jan-Feb 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`), the largest monthly increase since May 2022.
 
--   In year-on-year terms, new-build **prices are marginally above their levels from this time last year** and have remained markedly less volatile than prices across the aggregate market (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+-   In year-on-year terms, new-build **prices are above their levels from this time last year** and have remained markedly less volatile than prices across the aggregate market (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
 
--   Developer list-prices continued to demonstrate volatility across the smallest and largest property sizes however, **mid-sized homes have remained close to last year's prices and in some cases, have shown positive year-on-year growth**.
+-   While developer list-prices continue to demonstrate some volatility across the smallest and largest property sizes, **prices across all property types, have remained close to or above 2023 levels**.
 
 -   **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
 
@@ -982,19 +982,18 @@ subplot(pp32, pp31, pp30, nrows = 3) %>%
 
 ------------------------------------------------------------------------
 
--   Pricing has continued on a downward trend across all three developers.
+-   Developer pricing is more optimistic after a few periods of muted activity.
 
--   The largest 4+ bedroom properties have pulled back prices sharply across all developers.
-
--   Smaller Persimmon properties have retained some upward momentum, while Bellway has reduced prices across all property sizes. This may suggest a sharper impact on the more premium end of the new-build market.
+-   While the largest (4+ bedroom) and smallest (1 bedroom) properties continue to demonstrate higher monthly and year-on-year volatility, prices have ticked upwards across most developers in the Jan-Feb 2024 period.
 
 -   Double click on a legend item to compare a trace based on property-size. **Note:** the cash-values on the plot represent the **East-Midlands average**.
 
--   Move to the next panel to see how prices for new-build properties differ across UK regions.
+-   Move to the next panel to see how prices for new-build properties are trending across UK regions.
 
 ### Regional Variance and New-Build Prices Across European Electoral Regions - Regional averages and confidence-bounds
 
 ```{r regions}
+# Regions except London
 d_reg <- interactions::cat_plot(model3, "Month",
   modx = "european_electoral_region",
   mod2 = "rooms_min.f",
@@ -1003,9 +1002,21 @@ d_reg <- interactions::cat_plot(model3, "Month",
   data = df %>% filter(european_electoral_region != "London") %>%
     mutate(european_electoral_region = factor(european_electoral_region)),
   partial.residuals = FALSE
-)$data
+  )$data %>%
+  select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax)
+d_lon <- interactions::cat_plot(
+  model2, "Month",
+  modx = "rooms_min.f",
+  colors = rainbow(11),
+  geom = "line", dodge.width = .2,
+  data = df,
+  partial.residuals = FALSE
+  )$data %>%
+  mutate_if(is.numeric, function(x) x + fixef(model2)["european_electoral_regionLondon"]) %>%
+  mutate(european_electoral_region = "London") %>%
+  select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax)
 
-p_reg <- d_reg %>%
+d_reg <- bind_rows(d_reg, d_lon) %>%
   select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax) %>%
   mutate_if(is.numeric, function(x) exp(x) - 1) %>%
   mutate(
@@ -1018,18 +1029,25 @@ p_reg <- d_reg %>%
     Date = yearmonth(Month),
     Rooms = str_remove(rooms_min.f, "rooms_min.f = "),
     Region = european_electoral_region
-  ) %>%
+  ) 
+
+p_reg <- d_reg %>%
+  mutate_if(is.numeric, function(x) x / 1000) %>%
   ggplot(aes(Month)) +
-  geom_errorbar(aes(ymin = ymin, ymax = ymax, col = Region), width = .5) +
-  geom_line(aes(y = price, col = Region)) +
   geom_point(aes(
     y = price, col = Region,
     text1 = Date, text2 = Price, text3 = Credible, text4 = Region
   )) +
-  facet_wrap(vars(Rooms)) +
+  geom_line(aes(y = price, col = Region)) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax, col = Region), width = .5) +
+  facet_wrap(vars(Rooms), nrow = 1) +
   theme_dark() +
   theme(axis.text.x = element_text(angle = 45)) +
-  scale_y_continuous(labels = scales::dollar_format(prefix = "£", suffix = "K", scale = .001))
+  scale_color_manual(values = RColorBrewer::brewer.pal(11, "Set3")) +
+  scale_y_continuous(
+    labels = scales::dollar_format(prefix = "£", scale = 1),
+    ) +
+  ylab("") + xlab("")
 
 p4 <- ggplotly(p_reg, tooltip = c("text1", "text2", "text3", "text4"))
 p4 <- clean_plotly_legend(p4)
@@ -1040,15 +1058,15 @@ p4
 
 ------------------------------------------------------------------------
 
--   Double-click on a legend item to isolate a trace corresponding to a specific region.
+-   This chart compares regional trends in developer list-prices across regions, double-click on a legend item to isolate a trace corresponding to a specific region. 
 
--   London remains the most expensive region in the UK by-far, commanding a nearly `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionLondon"]))-1)*100,1),"%")` premium on a comparable development within the East-Midlands.
+-   London remains the most expensive region in the UK by-far, commanding a nearly `r scales::percent(exp(as.numeric(fixef(model2)["european_electoral_regionLondon"])) - 1)` premium on a comparable development within the East-Midlands.
 
--   Relative to the East-Midlands, the South-East, Eastern, South-West and West-Midlands command premiums of `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth East"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionEastern"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth West"]))-1)*100,1),"%")` and `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWest Midlands"]))-1)*100,1),"%")` respectively.
+-   Relative to the East-Midlands, the South-East, Eastern, South-West and West-Midlands tend to command premiums of approx. `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth East"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionEastern"]))-1)*100,1),"%")`, `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionSouth West"]))-1)*100,1),"%")` and `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWest Midlands"]))-1)*100,1),"%")` respectively.
 
--   Conversely, the North-East, North-West and Scotland are relatively cheaper with an equivalent property in the East-Midlands commanding a premium of `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth East"]))-1)*100,1),"%")`, `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth West"]))-1)*100,1),"%")` and `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionScotland"]))-1)*100,1),"%")` respectively.
+-   Conversely, the North-East, North-West and Scotland tend to be relatively cheaper with an equivalent property in the East-Midlands commanding a premium of `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth East"]))-1)*100,1),"%")`, `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionNorth West"]))-1)*100,1),"%")` and `r paste0(-round((exp(as.numeric(fixef(model2)["european_electoral_regionScotland"]))-1)*100,1),"%")` respectively.
 
--   Relative to the East-Midlands, a similar development in Wales is about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWales"]))-1)*100,1),"%")` more expensive while in Yorkshire and the Humber, about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionYorkshire and The Humber"]))-1)*100,1),"%")` cheaper. Yet, prices in these regions are comparable and not statistically distinguishable from the East-Midlands average.
+-   Relative to the East-Midlands, a similar development in Wales is about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionWales"]))-1)*100,1),"%")` more expensive while in Yorkshire and the Humber, about `r paste0(round((exp(as.numeric(fixef(model2)["european_electoral_regionYorkshire and The Humber"]))-1)*100,1),"%")` cheaper. Yet, prices in these regions are often comparable and not cleanly distinguishable from the East-Midlands average.
 
 -   On average, a 2-bedroom property commands a `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f2 Bedrooms"]))-1)*100,1),"%")` premium, a 3-bedroom property a `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f3 Bedrooms"]))-1)*100,1),"%")` premium. The largest properties, with 4 or more bedrooms are about `r paste0(round((exp(as.numeric(fixef(model2)["rooms_min.f4+ Bedrooms"]))-1)*100,1),"%")` more expensive than a 1-bedroom property in the same regions.
 
