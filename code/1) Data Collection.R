@@ -5,6 +5,9 @@ library(tidyverse)
 library(tidytext)
 library(lubridate)
 
+# Set working directory 
+setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
+
 # Helpers
 source("./code/helpers/get_barratt.R")
 source("./code/helpers/get_bellway.R")
