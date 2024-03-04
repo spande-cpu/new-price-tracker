@@ -6,6 +6,9 @@ library(lubridate)
 library(tsibble)
 library(httr)
 
+# Set working directory 
+setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
+
 # Load data
 source("./code/1) Data Collection")
 
