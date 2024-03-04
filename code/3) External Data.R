@@ -2,6 +2,9 @@
 library(httr)
 library(lubridate)
 
+# Set working directory 
+setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
+
 # Run upstream processes
 source("./code/2) Modelling.R")
 
