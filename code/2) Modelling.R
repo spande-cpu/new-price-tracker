@@ -13,7 +13,8 @@ setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/
 source("./code/1) Data Collection")
 
 # Preprocess
-df <- data %>% 
+df <- read_rds("./processed_data/new_build_prices_clean.RDS") %>% 
+  distinct() %>%
   rename("data_scraped_on" = "Date") %>%
   mutate(data_scraped_on = date(data_scraped_on), period = data_scraped_on %m-% months(1)) %>%
   mutate(date=date(tsibble::yearmonth(period))) %>%
