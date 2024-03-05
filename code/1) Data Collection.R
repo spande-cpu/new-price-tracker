@@ -96,6 +96,10 @@ data <- df %>%
     change_upto = (c(NA, diff(price_upto))/price_upto) * 100
   ) 
 
+# Results
+write_rds(df, "./raw_data/new_build_prices.RDS")
+write_rds(data, "./processed_data/new_build_prices_clean.RDS")
+
 # Clear environment
 rm(
   tmp,postcodes.tmp,previous,new,
@@ -103,9 +107,5 @@ rm(
   df,ons_params,
   get_barratt,get_bellway,
   get_persimmon, postcode_list
-  )
-
-# Results
-write_rds(df, "./raw_data/new_build_prices.RDS")
-write_rds(data, "./processed_data/new_build_prices_clean.RDS")
+)
 
