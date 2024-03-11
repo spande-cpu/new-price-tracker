@@ -119,21 +119,21 @@ halifax <- tibble(
     285425, 281713, ## 2022
     282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
     284039, 287244, ## 2023
-    291029, NA
+    290608, 291669
   ),
   halifax_change = c(
     -.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30, -.1, -.4, -2.4, -1.3, ## 2022
     0.2, 1.2, 0.8, -0.4, -0.2, -0.1, -0.4, -1.8, -.3, 1.2,
     .6, 1.1, ## 2023
-    1.3, NA
+    1.2, 0.4
   ),
   annual_hfx_change = c(
     9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
     9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ## 2022
     2.1, 2.1, 1.6, 0.1, -1.1, -2.6, -2.5, -4.5, -4.5, -3.1,
     -.8, 1.8, ## 2023
-    2.5, NA
+    2.5, 2.9
   )
 ) %>% filter(date >= date("2022-01-01"))
 options(scipen = 999)
@@ -284,6 +284,7 @@ change <- tibble(
   )
 ### Legend
 cols <- c("#440154FF", "#3B528BFF", "#21908CFF", "#5DC863FF", "#FDE725FF", "red", "black")
+dev_cols <- viridis::viridis(option = "magma", n = 3)
 fills <- c(
   "Nationwide Price Index" = cols[4],
   "Halifax Price Index" = cols[1],
@@ -557,15 +558,16 @@ px02 <- ggplotly(px02, tooltip = c("text1", "text5", "text2", "text3", "text4"))
 
 px04 <- devs %>%
   ggplot(aes(date(Date), price / 1000)) +
-  geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
-  geom_crossbar(
+  geom_line(
+    aes(col = Developer,
+        text1 = Date,
+        text2 = Price,
+        text3 = Credible, 
+        group = Developer)) +
+  geom_ribbon(
     aes(
-      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer, col = Developer,
-      text1 = Date,
-      text2 = Price,
-      text3 = Credible
-    ),
-    position = position_dodge(20), alpha = .2
+      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer
+    ), alpha = .1
   ) +
   facet_grid(. ~ rooms_min.f, scales = "free_y") +
   theme_dark() +
@@ -604,11 +606,13 @@ clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 
 ------------------------------------------------------------------------
 
--   In a return to price growth, **developer list prices have risen by `r current_change[,15]`** in the period of Jan-Feb 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`), the largest monthly increase since May 2022.
+-   Prices continue their momentum and have risen for the 3rd month in a row.
 
--   In year-on-year terms, new-build **prices are above their levels from this time last year** and have remained markedly less volatile than prices across the aggregate market (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+-   **Developer list prices have risen by `r current_change[,15]`** in the period of Feb-Mar 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
 
--   While developer list-prices continue to demonstrate some volatility across the smallest and largest property sizes, **prices across all property types, have remained close to or above 2023 levels**.
+-   Across all indices, **prices are above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+
+-   List-prices for the largest 4+ bedroom homes have risen sharply for Barratt and Persimmon developments. Barratt also shows a sharp increase for the smallest property sizes.
 
 -   **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
 
@@ -900,16 +904,14 @@ pp30 <- plotly::ggplotly(pp30, tooltip = c("text1", "text2", "text3")) %>%
 pp31 <- devs %>%
   mutate(Facet = "000s of £s") %>%
   ggplot(aes(date(Date), price / 1000)) +
-  geom_col(aes(fill = Developer), position = position_dodge(20), alpha = .7) +
-  geom_crossbar(
-    aes(
-      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer, col = Developer,
-      text1 = Date,
-      text2 = Price,
-      text3 = Credible
-    ),
-    position = position_dodge(20), alpha = .2
-  ) +
+  geom_ribbon(aes(ymin = ymin / 1000, 
+                  ymax = ymax / 1000, 
+                  fill = Developer), alpha = .1) +
+  geom_line(aes(x = date(Date), y = price / 1000, col = Developer, 
+                fill = Developer, group = Developer, 
+                text1 = Date,
+                text2 = Price,
+                text3 = Credible)) +
   facet_grid(Facet ~ rooms_min.f, scales = "free_y") +
   theme_dark() +
   theme(axis.text.x = element_blank()) +
@@ -982,9 +984,9 @@ subplot(pp32, pp31, pp30, nrows = 3) %>%
 
 ------------------------------------------------------------------------
 
--   Developer pricing is more optimistic after a few periods of muted activity.
+-   Developer pricing is showing signs of positive momentum.
 
--   While the largest (4+ bedroom) and smallest (1 bedroom) properties continue to demonstrate higher monthly and year-on-year volatility, prices have ticked upwards across most developers in the Jan-Feb 2024 period.
+-   List-prices for the largest 4+ bedroom homes have risen sharply for Barratt and Persimmon developments. Barratt also shows a sharp increase for the smallest property sizes.
 
 -   Double click on a legend item to compare a trace based on property-size. **Note:** the cash-values on the plot represent the **East-Midlands average**.
 
