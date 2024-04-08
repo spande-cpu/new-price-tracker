@@ -112,28 +112,28 @@ model3.upto <- read_rds("./models/model3.upto.RDS")
 
 ### Halifax index (100=1992)
 halifax <- tibble(
-  date = seq.Date(date("2021-06-01"), date("2024-02-01"), by = "month"),
+  date = seq.Date(date("2021-06-01"), date("2024-03-01"), by = "month"),
   halifax_prices = c(
     260973, 261165, 263162, 267516, 270184, 272778, 275996, ## 2021
     276645, 279741, 283001, 286242, 289666, 293586, 293173, 293992, 293664, 292406,
     285425, 281713, ## 2022
     282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
     284039, 287244, ## 2023
-    290608, 291669
+    290608, 291338, 288430
   ),
   halifax_change = c(
     -.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30, -.1, -.4, -2.4, -1.3, ## 2022
     0.2, 1.2, 0.8, -0.4, -0.2, -0.1, -0.4, -1.8, -.3, 1.2,
     .6, 1.1, ## 2023
-    1.2, 0.4
+    1.2, 0.3, -1
   ),
   annual_hfx_change = c(
     9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
     9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ## 2022
     2.1, 2.1, 1.6, 0.1, -1.1, -2.6, -2.5, -4.5, -4.5, -3.1,
     -.8, 1.8, ## 2023
-    2.5, 2.9
+    2.5, 2.9, .3
   )
 ) %>% filter(date >= date("2022-01-01"))
 options(scipen = 999)
@@ -497,7 +497,7 @@ current_change <- change[(nrow(change) - 1):nrow(change), ] %>%
 
 ### UK (nominal) house-price inflation -- Headlines
 
-```{r}
+```{r headlines}
 px02 <- change %>%
   ## Pretty labels for plotting
   mutate(
@@ -606,15 +606,15 @@ clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 
 ------------------------------------------------------------------------
 
--   Prices continue their momentum and have risen for the 3rd month in a row.
+- Across all indices, **prices are still above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
 
--   **Developer list prices have risen by `r current_change[,15]`** in the period of Feb-Mar 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
+- However after 3-consecutive months of growth, **developer list prices have contracted by `r current_change[,15]`** in the period of Mar-Apr 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
 
--   Across all indices, **prices are above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+- Prices for the largest 4+ bedroom homes show strong annual growth across all developers while, smaller property sizes are more mixed in terms of year-on-year performance.
 
--   List-prices for the largest 4+ bedroom homes have risen sharply for Barratt and Persimmon developments. Barratt also shows a sharp increase for the smallest property sizes.
+- The North-East and Eastern England show the strongest growth in prices across all regions in England, Wales and Scotland. 
 
--   **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
+- **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
 
 ### UK (nominal) house-price inflation -- Bank-Indices v/s New-Build Prices in % and Cash Terms
 
