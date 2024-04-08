@@ -41,7 +41,7 @@ get_persimmon <- function() {
       str_trim() %>%
       .[!str_detect(., "now closed")]
     address <- main_page %>%
-      html_nodes(css = ".t20.fw300") %>%
+      html_nodes(css = ".t18.font-weight-bold.t-g") %>%
       html_text2() 
     bedrooms <- main_page %>%
       html_nodes(css = ".d-inline-block.feature-text.align-middle") %>%
@@ -52,7 +52,7 @@ get_persimmon <- function() {
              rooms_max = ifelse(length(value[[1]]) > 1, value[[1]][length(value[[1]])], NA)) %>%
       select(-value)
     price <- main_page %>%
-      html_nodes(css = ".bg-vlg.py-3.text-center.my-4.bs-7.fw600") %>% 
+      html_nodes(css = ".priceBar") %>% 
       html_text2()
     
     if (is_empty(main_page)) {
