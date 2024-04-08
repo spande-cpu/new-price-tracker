@@ -23,8 +23,12 @@ saveRDS(nationwide_small, paste0("./processed_data/nationwide_sample_data.RDS"))
 saveRDS(nationwide, paste0("./processed_data/nationwide_full_data.RDS"))
 
 # Get ONS Data
-current <- month(today() %m-% months(3))
-file <- glue::glue("house-price-index-data/UK-HPI-full-file-2023-{current}.csv")
+current <- if_else(
+  nchar(month(today() %m-% months(3))) == 1, 
+  paste0("0", month(today() %m-% months(3))), 
+  paste0(month(today() %m-% months(3)))
+  )
+file <- glue::glue("house-price-index-data/UK-HPI-full-file-2024-{current}.csv")
 uk_hpi <- readr::read_csv(glue::glue("https://publicdata.landregistry.gov.uk/market-trend-data/{file}"))
 uk_hpi <- uk_hpi %>%
   filter(RegionName == "United Kingdom") %>%
