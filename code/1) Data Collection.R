@@ -16,9 +16,9 @@ source("./code/helpers/get_persimmon.R")
 # Get raw data
 barratt <- get_barratt() %>% 
   mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
-persimmon <- get_bellway() %>% 
+bellway <- get_bellway() %>% 
   mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
-bellway <- get_persimmon() %>% 
+persimmon <- get_persimmon() %>% 
   mutate_at(vars(contains("price") | contains("rooms")), as.numeric)
 
 # Look ups for geo-coding
@@ -85,7 +85,8 @@ tmp <- select(tmp, colnames(df))
 # Remove tmp developments from Data
 df <- filter(df, !developement %in% unique(tmp$developement))
 # Return approximate approximate geo-codes to data
-df <- bind_rows(df, tmp)
+df <- bind_rows(df, tmp) %>%
+  filter(nchar(price_mean) > 3)
 
 data <- df %>% 
   group_by(developer, rooms_min.f, developement, latitude, longitude) %>%
@@ -94,7 +95,8 @@ data <- df %>%
     change_from = (c(NA, diff(price_from))/price_from) * 100, 
     change_mean = (c(NA, diff(price_mean))/price_mean) * 100, 
     change_upto = (c(NA, diff(price_upto))/price_upto) * 100
-  ) 
+  ) %>%
+  filter(nchar(price_mean) > 3)
 
 # Results
 write_rds(df, "./raw_data/new_build_prices.RDS")
