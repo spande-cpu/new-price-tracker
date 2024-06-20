@@ -112,28 +112,28 @@ model3.upto <- read_rds("./models/model3.upto.RDS")
 
 ### Halifax index (100=1992)
 halifax <- tibble(
-  date = seq.Date(date("2021-06-01"), date("2024-04-01"), by = "month"),
+  date = seq.Date(date("2021-06-01"), date("2024-05-01"), by = "month"),
   halifax_prices = c(
     260973, 261165, 263162, 267516, 270184, 272778, 275996, ## 2021
     276645, 279741, 283001, 286242, 289666, 293586, 293173, 293992, 293664, 292406,
     285425, 281713, ## 2022
     282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
     284039, 287244, ## 2023
-    290608, 291338, 288781, 288949
+    290608, 291338, 288781, 288862, 288688
   ),
   halifax_change = c(
     -.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30, -.1, -.4, -2.4, -1.3, ## 2022
     0.2, 1.2, 0.8, -0.4, -0.2, -0.1, -0.4, -1.8, -.3, 1.2,
     .6, 1.1, ## 2023
-    1.2, 0.3, -0.9, 0.1
+    1.2, 0.3, -0.9, 0.0, -0.1
   ),
   annual_hfx_change = c(
     9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
     9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ## 2022
     2.1, 2.1, 1.6, 0.1, -1.1, -2.6, -2.5, -4.5, -4.5, -3.1,
     -.8, 1.8, ## 2023
-    2.5, 2.9, .4, 1.1
+    2.5, 2.9, .4, 1.1, 1.5
   )
 ) %>% filter(date >= date("2022-01-01"))
 options(scipen = 999)
@@ -557,24 +557,17 @@ px02 <- ggplotly(px02, tooltip = c("text1", "text5", "text2", "text3", "text4"))
   layout(hovermode = "x")
 
 px04 <- devs %>%
-  ggplot(aes(date(Date), price / 1000)) +
-  geom_line(
-    aes(col = Developer,
-        text1 = Date,
-        text2 = Price,
-        text3 = Credible, 
-        group = Developer)) +
-  geom_ribbon(
-    aes(
-      ymin = ymin / 1000, ymax = ymax / 1000, fill = Developer
-    ), alpha = .1
-  ) +
-  facet_grid(. ~ rooms_min.f, scales = "free_y") +
+  mutate(Facet = "Annual % Change") %>%
+  ggplot(aes(date(Date), `12m%Change`)) +
+  geom_col(aes(
+    fill = Developer,
+    text1 = Date,
+    text2 = `Annual Change`,
+    text3 = Price
+  ), position = position_dodge(20), alpha = .7) +
+  facet_grid(Facet ~ rooms_min.f, scales = "free_y") +
   theme_dark() +
-  theme(
-    axis.text.x = element_text(angle = 45),
-    legend.title = element_blank()
-  ) +
+  theme(axis.text.x = element_text(angle = 45)) +
   scale_fill_manual(values = c(
     "Barratt-Homes" = viridis::magma(3)[1],
     "Bellway-Homes" = viridis::magma(3)[2],
@@ -587,34 +580,35 @@ px04 <- devs %>%
   )) +
   ylab("000's of £s") +
   xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
   scale_x_date(
-    date_breaks = "2 months",
+    date_breaks = "3 months",
     labels = date_format("%b-%Y"),
     limits = as.Date(
       c(
         min(date(devs$Date)) %m-% months(1),
-        max(date(devs$Date)) %m+% months(1)
+        max(date(devs$Date)) %m+% months(3)
       )
     )
   )
 px04$labels$fill <- ""
 px04$labels$colour <- ""
-px04 <- ggplotly(px04, tooltip = c("text1", "text2", "text3")) %>%
+px04 <- ggplotly(px04, tooltip = c("fill","text1", "text2", "text3")) %>%
   layout(hovermode = "x")
 clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 ```
 
 ------------------------------------------------------------------------
 
-- Prices continue their upward momentum since the start of 2024 with **developer list prices rising by `r current_change[,15]`** in the period of Apr-May 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
+- Prices **see a marginal downward adjustment `r current_change[,15]`** in the period of Apr-May 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
 
-- Across all indices, **prices are remain above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+- Across all indices, **prices continue to hold above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
 
-- Prices for the largest 4+ bedroom homes show strong annual growth across all developers while, smaller property sizes are more mixed in terms of year-on-year performance.
+- In annual terms, **Persimmon-Homes has seen the largest price-increases** across all property-sizes.
 
-- The North-East and Eastern England show the strongest growth in prices across all regions in England, Wales and Scotland. 
+- Developer list-prices have shown annual increases in The North-East, East-Midlands, Wales, East of England and Scotland while, prices are lower than this time last year in the North-West, South-West, West-Midlands and the South-East.
 
-- **Prices for new-build homes will likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see continuing positive growth as the interest-rate cycle begins to loosen over H2 of 2024.
+- **Prices for new-build homes should likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see stronger positive growth as the interest-rate cycle begins to loosen in Q4 of 2024.
 
 ### UK (nominal) house-price inflation -- Bank-Indices v/s New-Build Prices in % and Cash Terms
 
@@ -850,7 +844,7 @@ clean_plotly_legend(p)
 
 ------------------------------------------------------------------------
 
--   This chart compares annual and monthly (listed) house-price inflation for New-Build Homes (Barratt, Bellway and Persimmon average) against confirmed sales price data recorded by the ONS for average sale-prices and new-prices.
+-   This chart compares annual and monthly (listed) house-price inflation for New-Build Homes (Barratt, Bellway and Persimmon average) against confirmed sales-price data recorded by the ONS for average sale-prices and new-prices.
 
 -   Double-click on a legend item to isolate a trace on the graph.
 
@@ -986,7 +980,7 @@ subplot(pp32, pp31, pp30, nrows = 3) %>%
 
 -   Developer pricing is showing signs of positive momentum.
 
--   List-prices for the largest 4+ bedroom homes have risen sharply for Barratt and Persimmon developments. Barratt also shows a sharp increase for the smallest property sizes.
+-   Persimmon-Homes shows the strongest annual price growth across all property sizes relative to a mixed outlook for the other two developers.
 
 -   Double click on a legend item to compare a trace based on property-size. **Note:** the cash-values on the plot represent the **East-Midlands average**.
 
@@ -1021,18 +1015,44 @@ d_lon <- interactions::cat_plot(
 d_reg <- bind_rows(d_reg, d_lon) %>%
   select(Month, rooms_min.f, european_electoral_region, price, ymin, ymax) %>%
   mutate_if(is.numeric, function(x) exp(x) - 1) %>%
+  group_by(european_electoral_region, rooms_min.f) %>%
   mutate(
     Month = yearmonth(Month),
-    Price = scales::dollar(price, prefix = "£", suffix = "K", sale = .001),
+    `1m%Change` = (c(NA, diff(price)) / lag(price, 1)) * 100,
+    `12m%Change` = (c(rep(NA, 12), diff(price, lag = 12)) / lag(price, 12)) * 100,
+    Price = paste0("£", prettyNum(round(price), big.mark = ",")),
     Credible = paste0(
-      "[", scales::dollar(ymin, prefix = "£", suffix = "K", sale = .001), " to ",
-      scales::dollar(ymax, prefix = "£", suffix = "K", sale = .001), "]"
+      "[", prettyNum(round(ymin), big.mark = ","), "-",
+      prettyNum(round(ymax), big.mark = ","), "]"
     ),
-    Date = yearmonth(Month),
+    `Monthly Change` = scales::label_percent()(round(`1m%Change` / 100, 4)),
+    `Annual Change` = scales::label_percent()(round(`12m%Change` / 100, 4)),
+    Date = date(yearmonth(Month)),
     Rooms = str_remove(rooms_min.f, "rooms_min.f = "),
     Region = european_electoral_region
-  ) 
+  )
 
+## Annual
+p_reg1 <- d_reg %>%
+  mutate(Facet = "Annual % Change") %>%
+  ggplot(aes(Month, `12m%Change`)) +
+  geom_line(aes(
+    group = european_electoral_region,
+    colour = Region,
+    text1 = Date,
+    text2 = `Annual Change`,
+    text3 = Region
+  )) +
+  facet_grid(Facet ~ Rooms, scales = "free_y") +
+  theme_dark() +
+  theme(axis.text.x = element_text(angle = 45)) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(11, "Set3")) +
+  scale_fill_manual(values = RColorBrewer::brewer.pal(11, "Set3")) +
+  ylab("000's of £s") +
+  xlab("") +
+  geom_hline(yintercept = 0, linetype = "dashed") 
+
+## Price
 p_reg <- d_reg %>%
   mutate_if(is.numeric, function(x) x / 1000) %>%
   ggplot(aes(Month)) +
@@ -1047,15 +1067,24 @@ p_reg <- d_reg %>%
   theme(axis.text.x = element_text(angle = 45)) +
   scale_color_manual(values = RColorBrewer::brewer.pal(11, "Set3")) +
   scale_y_continuous(
-    labels = scales::dollar_format(prefix = "£", scale = 1),
+    labels = scales::dollar_format(prefix = "£"),
     ) +
-  ylab("") + xlab("")
+  ylab("") + xlab("") +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank())
 
 p4 <- ggplotly(p_reg, tooltip = c("text1", "text2", "text3", "text4"))
 p4 <- clean_plotly_legend(p4)
 p4$x$layout$legend$title$text <- ""
 
-p4
+p5 <- ggplotly(p_reg1, tooltip = c("text1", "text2", "text3", "text4"))
+p5 <- clean_plotly_legend(p5) 
+p5$x$layout$legend$title$text <- ""
+
+subplot(p4, p5 %>%
+  layout(hovermode = "x"), nrows = 2) %>%
+  clean_plotly_legend() 
 ```
 
 ------------------------------------------------------------------------
@@ -1107,7 +1136,7 @@ dat_pivot_prices %>%
 
 -   In addition to prices, we gather data on the average property size (proxy the minimum no. of bedrooms) as well as location, including the European electoral region, local areas, postcodes and geographical coordinates.
 
--   The estimates reported here are predictions from a [mixed-effects regression model](https://www.jstatsoft.org/article/download/v030b03/321). The fixed terms in the model include - the developer, the minimum no. of rooms within a development and the European electoral region as population-level effects. In addition, there are controls for the total no. of developments listed (as a proxy for a change in the stock of developments) and the range of rooms available within a development (e.g. where a development may include 1-3 bedroom properties, the range is 2). To account for the fact that we do not incorporate measures for factors such as square-footage, energy-efficiency ratings, amenities and/or qualitative features such as a view etc. that are likely to vary across individual developments as well as properties within a development, we compartmentalise this variance through adjusting the population averages for such unexplained sources of price-heterogeneity across local administrative districts. The model explains about 79% of the variance in prices. Of this, about 55% is due to the fixed terms (developer, rooms, region, range and no. of listings) and the remaining 24% is accounted for as sub-regional variance.
+-   The estimates reported here are predictions from a hedonic [mixed-effects regression model](http://www.stat.columbia.edu/~gelman/arm/). The fixed terms in the model include - the developer, the minimum no. of rooms within a development and the European electoral region as population-level effects. In addition, there are controls for the total no. of developments listed (as a proxy for a change in the stock of developments) and the range of rooms available within a development (e.g. where a development may include 1-3 bedroom properties, the range is 2). To account for the fact that we do not incorporate measures for factors such as square-footage, energy-efficiency ratings, amenities and/or qualitative features such as a view etc. that are likely to vary across individual developments as well as properties within a development, we compartmentalise this variance through adjusting the population averages for such unexplained sources of price-heterogeneity across local administrative districts. The model explains about 79% of the variance in prices. Of this, about 55% is due to the fixed terms (developer, rooms, region, range and no. of listings) and the remaining 24% is accounted for as sub-regional variance.
 
 -   Use the pivot table to the left to drill deeper into the data. You can create custom visualisations using the selector currently set to "Heatmap".
 
