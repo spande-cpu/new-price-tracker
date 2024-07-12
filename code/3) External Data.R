@@ -6,12 +6,12 @@ library(lubridate)
 setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
 
 # Run upstream processes
-source("./code/2) Modelling.R")
+#source("./code/2) Modelling.R")
 
 # Get Nationwide Data
 GET("https://www.nationwidehousepriceindex.co.uk/download/uk-monthly-index",
-    write_disk(tf <- tempfile(fileext = ".xlsx")))
-nationwide <- readxl::read_xlsx(path.expand(tf)) ## Can also be xls depending on Nationwide's mood.
+    write_disk(tf <- tempfile(fileext = ".xls")))
+nationwide <- readxl::read_xls(path.expand(tf)) ## Can also be xls depending on Nationwide's mood.
 nationwide_small <- nationwide %>% 
   rename("date" = "...1", "nationwide_prices" = `Average House Price`, 
          "nationwide_change" = `Monthly % Change (SA)`,
