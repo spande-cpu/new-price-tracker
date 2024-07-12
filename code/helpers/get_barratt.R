@@ -58,11 +58,13 @@ get_barratt <- function() {
         price_from = str_remove_all(price_from, ",|£"),
         price_upto = str_remove_all(price_upto, ",|£")
       ) %>%
-      mutate(rooms = str_extract_all(rooms, "[0-9]+")) %>%
+      mutate(
+        rooms = str_sub(rooms, start = 1, end = 24),
+        rooms = str_extract_all(rooms, "[0-9]+")
+        ) %>%
       unnest(rooms) %>%
       mutate(
         rooms = as.numeric(rooms),
-        rooms = if_else(rooms >= 7, NA, rooms)
       ) %>%
       group_by(id) %>%
       summarise(
