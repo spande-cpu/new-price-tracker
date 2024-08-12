@@ -75,6 +75,7 @@ model1.upto <- lmer(
     (1|european_electoral_region:primary_care_trust:admin_district), 
   data = df
 )
+
 # Mixed effects, conditional slopes
 model2 <- lmer(
   price ~ 
