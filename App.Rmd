@@ -112,28 +112,28 @@ model3.upto <- read_rds("./models/model3.upto.RDS")
 
 ### Halifax index (100=1992)
 halifax <- tibble(
-  date = seq.Date(date("2021-06-01"), date("2024-07-01"), by = "month"),
+  date = seq.Date(date("2021-06-01"), date("2024-08-01"), by = "month"),
   halifax_prices = c(
     260973, 261165, 263162, 267516, 270184, 272778, 275996, ## 2021
     276645, 279741, 283001, 286242, 289666, 293586, 293173, 293992, 293664, 292406,
     285425, 281713, ## 2022
     282360, 285660, 287891, 286662, 286234, 286011, 284852, 279793, 278985, 282221,
     284039, 287244, ## 2023
-    290608, 291338, 288781, 288862, 288931, 289042, 291268
+    290608, 291338, 288781, 288862, 288931, 289042, 291585, 292505
   ),
   halifax_change = c(
     -.3, .1, .8, 1.7, 1, 1.1, 1.1, ## 2021
     .2, 1.2, 1.2, 1.2, 1.2, 1.4, -.1, 0.30, -.1, -.4, -2.4, -1.3, ## 2022
     0.2, 1.2, 0.8, -0.4, -0.2, -0.1, -0.4, -1.8, -.3, 1.2,
     .6, 1.1, ## 2023
-    1.2, 0.3, -0.9, 0.0, 0.0, 0.0, .8
+    1.2, 0.3, -0.9, 0.0, 0.0, 0.0,.9, .3
   ),
   annual_hfx_change = c(
     9.1, 7.6, 7.2, 7.4, 8.2, 8.2, 9.7, ## 2021
     9.7, 11.5, 11.1, 10.8, 10.7, 12.5, 11.8, 11.4, 9.8, 8.2, 4.6, 2.1, ## 2022
     2.1, 2.1, 1.6, 0.1, -1.1, -2.6, -2.5, -4.5, -4.5, -3.1,
     -.8, 1.8, ## 2023
-    2.5, 2.9, .4, 1.1, 1.6, 1.9, 2.3 
+    2.5, 2.9, .4, 1.1, 1.6, 1.9, 2.4, 4.3 
   )
 ) %>% filter(date >= date("2022-01-01"))
 options(scipen = 999)
@@ -600,15 +600,17 @@ clean_plotly_legend(subplot(px02, px04, nrows = 2, shareX = F))
 
 ------------------------------------------------------------------------
 
-- Prices **see a marginal downward adjustment `r current_change[,15]`** in the period of Apr-May 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`). 
+- Prices **move upwards by `r current_change[,15]`** in the period of Aug-Sep 2024 (v/s Halifax = `r current_change[,4]`, v/s Nationwide = `r current_change[,12]`) after 
+the first rate-cut by the BoE. 
 
-- Across all indices, **prices continue to hold above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
+- Across all indices, **prices hold above their levels from this time last year** (∆NewBuild = `r current_change[,14]`, ∆Halifax = `r current_change[,3]`, ∆Nationwide = `r current_change[,11]`).
 
-- In annual terms, **Persimmon-Homes has seen the largest price-increases** across all property-sizes.
+- In annual terms, **Persimmon-Homes has seen the largest price-increases**.
 
-- Developer list-prices have shown annual increases in The North-East, East-Midlands, Wales, East of England and Scotland while, prices are lower than this time last year in the North-West, South-West, West-Midlands and the South-East.
+- Prices across the regional-mix highlight some regions where prices remain 
+below last-year's levels.
 
-- **Prices for new-build homes should likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see stronger positive growth as the interest-rate cycle begins to loosen in Q4 of 2024.
+- **Prices for new-build homes should likely remain more resilient** [v/s the market average] **due to supply-side factors** and may see stronger positive growth as the interest-rate cycle continues to loosen.
 
 ### UK (nominal) house-price inflation -- Bank-Indices v/s New-Build Prices in % and Cash Terms
 
