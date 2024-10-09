@@ -5,9 +5,6 @@ library(tidyverse)
 library(tidytext)
 library(lubridate)
 
-# Set working directory 
-setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
-
 # Helpers
 source("./code/helpers/get_barratt.R")
 source("./code/helpers/get_bellway.R")
@@ -23,15 +20,16 @@ persimmon <- get_persimmon() %>%
 
 # Look ups for geo-coding
 ons_params <- c(
-  "postcode", "eastings", "northings", "country", "nhs_ha", "longitude", "latitude",
-  "european_electoral_region", "primary_care_trust", "lsoa", "msoa", "incode", "outcode",
-  "parliamentary_constituency", "admin_district", "admin_ward", "ccg", "nuts"
+  "postcode", "eastings", "northings", "country", "nhs_ha", "longitude", 
+  "latitude", "european_electoral_region", "primary_care_trust", "lsoa",
+  "msoa", "incode", "outcode", "parliamentary_constituency", "admin_district",
+  "admin_ward", "ccg", "nuts"
 )
 
 # New data
 new <- bind_rows(barratt, persimmon, bellway) %>%
-  select(Date, Year, Month, url, developer, developement, address, postcode, rooms_min, 
-         rooms_max, price_from, price_upto, all_of(ons_params)) %>%
+  select(Date, Year, Month, url, developer, developement, address, postcode,
+         rooms_min, rooms_max, price_from, price_upto, all_of(ons_params)) %>%
   filter(!is.na(price_from)) %>% 
   as_tibble()
 
@@ -45,19 +43,25 @@ df <- bind_rows(previous, new) %>%
   group_by(Date, developer, european_electoral_region, primary_care_trust) %>%
   ## Count the no. of unique listings
   mutate(listings = n_distinct(developement),
-         room_range = if_else(is.na(rooms_max-rooms_min), 0, rooms_max-rooms_min),
+         room_range = if_else(
+           is.na(rooms_max-rooms_min), 0, rooms_max-rooms_min
+           ),
          Month = factor(Month)) %>%
   ungroup() %>%
   ## Fix some problematic values
   mutate(price_from = ifelse(price_from==1, price_upto, price_from),
-         price_mean = ifelse(is.na(price_upto), price_from, (price_from+price_upto)/2), 
+         price_mean = ifelse(
+           is.na(price_upto), price_from, (price_from+price_upto)/2
+           ), 
          rooms_min.f = factor(rooms_min))
 
 # Clean Data
 levels(df$rooms_min.f) <- c("1","2","3","4","5", "6")
 # Set factor variable for no. of rooms
 df$rooms_min.f <- plyr::mapvalues(
-  df$rooms_min.f, from = c("1", "2", "3", "4", "5", "6"), to = c("1","2","3","4+","4+","4+")
+  df$rooms_min.f,
+  from = c("1", "2", "3", "4", "5", "6"),
+  to = c("1","2","3","4+","4+","4+")
 )
 levels(df$rooms_min.f) <- c("1","2","3","4+")
 
@@ -65,14 +69,17 @@ levels(df$rooms_min.f) <- c("1","2","3","4+")
 tmp <- filter(df, is.na(european_electoral_region)) %>%
   separate(postcode, c("out", "inc"), sep = " ") %>%
   mutate(out = ifelse(is.na(inc), "DA10", out)) 
-postcode_list <- lapply(tmp$out, function(x) PostcodesioR::random_postcode(x)$postcode)
+postcode_list <- lapply(
+  tmp$out, function(x) PostcodesioR::random_postcode(x)$postcode
+  )
 postcode_list[sapply(postcode_list, is.null)] <- NA
 tmp$postcode <- unlist(postcode_list)
 tmp <- select(tmp, colnames(df)) %>%
   select(-c(european_electoral_region,
-            eastings,northings,country,nhs_ha,longitude,latitude,primary_care_trust,
-            lsoa,msoa,incode,outcode,parliamentary_constituency,admin_district,admin_ward,
-            ccg,nuts)) %>%
+            eastings, northings, country,nhs_ha, longitude, latitude, 
+            primary_care_trust, lsoa, msoa, incode, outcode, 
+            parliamentary_constituency, admin_district, admin_ward,
+            ccg, nuts)) %>%
   filter(!is.na(postcode))
 # Lookup postcodes
 postcodes.tmp <- data.frame()

@@ -2,21 +2,17 @@
 library(httr)
 library(lubridate)
 
-# Set working directory 
-setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
-
-# Run upstream processes
-#source("./code/2) Modelling.R")
-
 # Get Nationwide Data
 GET("https://www.nationwidehousepriceindex.co.uk/download/uk-monthly-index",
     write_disk(tf <- tempfile(fileext = ".xlsx")))
-nationwide <- readxl::read_xlsx(path.expand(tf)) ## Can also be xls depending on Nationwide's mood.
+nationwide <- readxl::read_xlsx(path.expand(tf)) ## Can also be xls.
 nationwide_small <- nationwide %>% 
   rename("date" = "...1", "nationwide_prices" = `Average House Price`, 
          "nationwide_change" = `Monthly % Change (SA)`,
          "annual_nwd_change" = `Year % Change`) %>%
-  dplyr::select(date, nationwide_prices, nationwide_change, annual_nwd_change) %>% 
+  dplyr::select(
+    date, nationwide_prices, nationwide_change, annual_nwd_change
+    ) %>% 
   filter(lubridate::year(date) >= 2022) %>%
   mutate(date = lubridate::date(date))
 saveRDS(nationwide_small, paste0("./processed_data/nationwide_sample_data.RDS"))
@@ -28,8 +24,12 @@ current <- if_else(
   paste0("0", month(today() %m-% months(3))), 
   paste0(month(today() %m-% months(3)))
   )
-file <- glue::glue("house-price-index-data/UK-HPI-full-file-2024-{current}.csv")
-uk_hpi <- readr::read_csv(glue::glue("https://publicdata.landregistry.gov.uk/market-trend-data/{file}"))
+file <- glue::glue(
+  "house-price-index-data/UK-HPI-full-file-2024-{current}.csv"
+  )
+uk_hpi <- readr::read_csv(
+  glue::glue("https://publicdata.landregistry.gov.uk/market-trend-data/{file}")
+  )
 uk_hpi <- uk_hpi %>%
   filter(RegionName == "United Kingdom") %>%
   select(Date, ONSAveragePrice = AveragePrice, `ONS1m%Change` = `1m%Change`, 

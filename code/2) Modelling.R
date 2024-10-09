@@ -6,17 +6,12 @@ library(lubridate)
 library(tsibble)
 library(httr)
 
-# Set working directory 
-setwd("/Users/shashwatpande/Library/CloudStorage/OneDrive-TriumphMotorcyclesLtd/###R Projects/# Ad-Hoc/## New Build Tracker")
-
-# Load data
-#source("./code/1) Data Collection")
-
 # Preprocess
 df <- read_rds("./processed_data/new_build_prices_clean.RDS") %>% 
   distinct() %>%
   rename("data_scraped_on" = "Date") %>%
-  mutate(data_scraped_on = date(data_scraped_on), period = data_scraped_on %m-% months(1)) %>%
+  mutate(data_scraped_on = date(data_scraped_on),
+         period = data_scraped_on %m-% months(1)) %>%
   mutate(date=date(tsibble::yearmonth(period))) %>%
   mutate(rooms_min.f = paste0(rooms_min.f, " Bedrooms"),
          price = log(price_mean),
