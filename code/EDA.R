@@ -22,8 +22,7 @@ df |>
 
 
 
-
-|>
+df |>
   ggplot(aes(factor(Year), price_mean)) +
   facet_wrap(vars(Month), scales = "fixed") +
   stat_summary(
